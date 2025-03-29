@@ -172,3 +172,28 @@ export const deleteUser = async (req, res) => {
 		res.status(500).json({ message: "Server error" });
 	}
 };
+
+export const searchUsers = async (req, res) => {
+	try {
+		const { query } = req.query;
+		
+		if (!query) {
+			return res.status(400).json({ message: "Search query is required" });
+		}
+		
+		// Search for users whose username or name contains the query string
+		const users = await User.find({
+			$or: [
+				{ username: { $regex: query, $options: "i" } },
+				{ name: { $regex: query, $options: "i" } }
+			]
+		})
+		.limit(5) // Limit to 5 results for suggestions
+		.select("name username profilePicture headline");
+		
+		res.json(users);
+	} catch (error) {
+		console.error("Error in searchUsers controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
