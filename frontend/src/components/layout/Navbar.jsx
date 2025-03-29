@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../../lib/axios";
 import { Link } from "react-router-dom";
-import { Bell, Home, LogOut, User, Users } from "lucide-react";
+import { Bell, Home, LogOut, User, Users, ChevronDown } from "lucide-react";
 import SearchBar from "../SearchBar";
+import { useState, useRef, useEffect } from "react";
 
 const Navbar = () => {
 	const { data: authUser } = useQuery({ queryKey: ["authUser"] });
 	const queryClient = useQueryClient();
+	const [showDropdown, setShowDropdown] = useState(false);
+	const dropdownRef = useRef(null);
 
 	const { data: notifications } = useQuery({
 		queryKey: ["notifications"],
@@ -29,6 +32,18 @@ const Navbar = () => {
 
 	const unreadNotificationCount = notifications?.data.filter((notif) => !notif.read).length;
 	const unreadConnectionRequestsCount = connectionRequests?.data?.length;
+
+	// Close dropdown when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event) => {
+			if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+				setShowDropdown(false);
+			}
+		};
+
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
 
 	return (
 		<nav className='bg-secondary shadow-md sticky top-0 z-10'>
@@ -71,20 +86,65 @@ const Navbar = () => {
 										</span>
 									)}
 								</Link>
-								<Link
-									to={`/profile/${authUser.username}`}
-									className='text-neutral flex flex-col items-center'
-								>
-									<User size={20} />
-									<span className='text-xs hidden md:block'>Me</span>
-								</Link>
-								<button
-									className='flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-800'
-									onClick={() => logout()}
-								>
-									<LogOut size={20} />
-									<span className='hidden md:inline'>Logout</span>
-								</button>
+								
+								{/* Profile dropdown */}
+								<div className="relative" ref={dropdownRef}>
+									<button 
+										onClick={() => setShowDropdown(!showDropdown)}
+										className="flex items-center focus:outline-none text-neutral"
+									>
+										<div className="flex items-center">
+											<img 
+												src={authUser.profilePicture || "/avatar.png"} 
+												alt={authUser.name}
+												className="w-6 h-6 rounded-full" 
+											/>
+											<ChevronDown size={14} className="ml-1" />
+										</div>
+									</button>
+									
+									{showDropdown && (
+										<div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
+											<div className="py-1">
+												<div className="px-4 py-2 border-b">
+													<div className="flex items-center">
+														<img 
+															src={authUser.profilePicture || "/avatar.png"} 
+															alt={authUser.name}
+															className="w-10 h-10 rounded-full mr-3" 
+														/>
+														<div>
+															<p className="font-medium text-sm">{authUser.name}</p>
+															<p className="text-xs text-gray-500">{authUser.headline}</p>
+														</div>
+													</div>
+												</div>
+												<Link
+													to={`/profile/${authUser.username}`}
+													onClick={() => setShowDropdown(false)}
+													className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+												>
+													<div className="flex items-center">
+														<User size={16} className="mr-2" />
+														View Profile
+													</div>
+												</Link>
+												<button
+													onClick={() => {
+														logout();
+														setShowDropdown(false);
+													}}
+													className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+												>
+													<div className="flex items-center text-red-600">
+														<LogOut size={16} className="mr-2" />
+														Logout
+													</div>
+												</button>
+											</div>
+										</div>
+									)}
+								</div>
 							</>
 						) : (
 							<>
