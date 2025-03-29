@@ -60,11 +60,11 @@ const Navbar = () => {
 							<>
 								<Link to={"/"} className='text-neutral flex flex-col items-center'>
 									<Home size={20} />
-									<span className='text-xs hidden md:block'>Home</span>
+									<span className='text-[11px] hidden md:block'>Home</span>
 								</Link>
 								<Link to='/network' className='text-neutral flex flex-col items-center relative'>
 									<Users size={20} />
-									<span className='text-xs hidden md:block'>My Network</span>
+									<span className='text-[11px] hidden md:block'>My Network</span>
 									{unreadConnectionRequestsCount > 0 && (
 										<span
 											className='absolute -top-1 -right-1 md:right-4 bg-blue-500 text-white text-xs 
@@ -76,7 +76,7 @@ const Navbar = () => {
 								</Link>
 								<Link to='/notifications' className='text-neutral flex flex-col items-center relative'>
 									<Bell size={20} />
-									<span className='text-xs hidden md:block'>Notifications</span>
+									<span className='text-[11px] hidden md:block'>Notifications</span>
 									{unreadNotificationCount > 0 && (
 										<span
 											className='absolute -top-1 -right-1 md:right-4 bg-blue-500 text-white text-xs 
@@ -91,15 +91,16 @@ const Navbar = () => {
 								<div className="relative" ref={dropdownRef}>
 									<button 
 										onClick={() => setShowDropdown(!showDropdown)}
-										className="flex items-center focus:outline-none text-neutral"
+										className="flex flex-col items-center focus:outline-none text-neutral"
 									>
-										<div className="flex items-center">
-											<img 
-												src={authUser.profilePicture || "/avatar.png"} 
-												alt={authUser.name}
-												className="w-6 h-6 rounded-full" 
-											/>
-											<ChevronDown size={14} className="ml-1" />
+										<img 
+											src={authUser.profilePicture || "/avatar.png"} 
+											alt={authUser.name}
+											className="w-6 h-6 rounded-full border-2 border-gray-200" 
+										/>
+										<div className="flex items-center mt-1">
+											<span className='text-[11px] hidden md:block'>Me</span>
+											<ChevronDown size={14} className="ml-0.5 hidden md:block" />
 										</div>
 									</button>
 									
