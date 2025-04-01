@@ -3,13 +3,23 @@ import { useState } from "react";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { Link, useParams } from "react-router-dom";
-import { Loader, MessageCircle, Send, Share2, ThumbsUp, Trash2 } from "lucide-react";
+import { 
+	ChevronLeft, 
+	ChevronRight, 
+	Loader, 
+	MessageCircle, 
+	Send, 
+	Share2, 
+	ThumbsUp, 
+	Trash2 
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import PostAction from "./PostAction";
 
 const Post = ({ post }) => {
 	const { postId } = useParams();
+	const [activeImageIndex, setActiveImageIndex] = useState(0);
 
 	const { data: authUser } = useQuery({ queryKey: ["authUser"] });
 	const [showComments, setShowComments] = useState(false);
@@ -86,6 +96,18 @@ const Post = ({ post }) => {
 		}
 	};
 
+	const nextImage = () => {
+		if (post.images && post.images.length > 1) {
+			setActiveImageIndex((prev) => (prev + 1) % post.images.length);
+		}
+	};
+
+	const prevImage = () => {
+		if (post.images && post.images.length > 1) {
+			setActiveImageIndex((prev) => (prev === 0 ? post.images.length - 1 : prev - 1));
+		}
+	};
+
 	return (
 		<div className='bg-secondary rounded-lg shadow mb-4'>
 			<div className='p-4'>
@@ -116,11 +138,85 @@ const Post = ({ post }) => {
 					)}
 				</div>
 				<p className='mb-4'>{post.content}</p>
-				{post.image && <img src={post.image} alt='Post content' className='rounded-lg w-full mb-4' />}
+				
+				{/* Display images with Instagram aspect ratios and navigation arrows */}
+				{post.images && post.images.length > 0 ? (
+					<div className="relative mb-4 w-full overflow-hidden rounded-lg">
+						{post.images.map((image, index) => {
+							// Get aspect ratio class from image data or use default
+							const aspectRatioClass = (() => {
+								const ratio = image.aspectRatio || "1:1";
+								switch (ratio) {
+									case "1:1": return "aspect-[1/1]"; // Square
+									case "1.91:1": return "aspect-[1.91/1]"; // Landscape
+									case "4:5": return "aspect-[4/5]"; // Portrait
+									default: return "aspect-[1/1]"; // Default to square
+								}
+							})();
+							
+							return (
+								<div 
+									key={index} 
+									className={`${aspectRatioClass} w-full bg-black ${index === activeImageIndex ? 'block' : 'hidden'}`}
+								>
+									<img 
+										src={image.url} 
+										alt={`Post image ${index + 1}`} 
+										className="w-full h-full object-contain mx-auto" 
+									/>
+								</div>
+							);
+						})}
+						
+						{/* Navigation arrows */}
+						{post.images.length > 1 && (
+							<>
+								<button 
+									onClick={prevImage}
+									className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-30 
+											text-white rounded-full p-1 z-20 hover:bg-opacity-50 transition-all"
+									aria-label="Previous image"
+								>
+									<ChevronLeft size={24} />
+								</button>
+								
+								<button 
+									onClick={nextImage}
+									className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-30 
+											text-white rounded-full p-1 z-20 hover:bg-opacity-50 transition-all"
+									aria-label="Next image"
+								>
+									<ChevronRight size={24} />
+								</button>
+								
+								{/* Image indicators */}
+								<div className="absolute bottom-4 left-0 right-0 flex justify-center z-20">
+									<div className="flex space-x-1 bg-black bg-opacity-20 rounded-full px-2 py-1">
+										{post.images.map((_, index) => (
+											<div 
+												key={index} 
+												className={`h-2 w-2 rounded-full cursor-pointer ${index === activeImageIndex 
+												? 'bg-blue-500' : 'bg-white bg-opacity-50'}`}
+												onClick={() => setActiveImageIndex(index)}
+											></div>
+										))}
+									</div>
+								</div>
+							</>
+						)}
+					</div>
+				) : (
+					// For backward compatibility
+					post.image && (
+						<div className="w-full aspect-[1/1] mb-4 bg-black rounded-lg overflow-hidden">
+							<img src={post.image} alt='Post content' className='w-full h-full object-contain' />
+						</div>
+					)
+				)}
 
 				<div className='flex justify-between text-info'>
 					<PostAction
-						icon={<ThumbsUp size={18} className={isLiked ? "text-blue-500  fill-blue-300" : ""} />}
+						icon={<ThumbsUp size={18} className={isLiked ? "text-blue-500 fill-blue-300" : ""} />}
 						text={`Like (${post.likes.length})`}
 						onClick={handleLikePost}
 					/>

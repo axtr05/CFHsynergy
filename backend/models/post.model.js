@@ -4,7 +4,15 @@ const postSchema = new mongoose.Schema(
 	{
 		author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 		content: { type: String },
-		image: { type: String },
+		images: [{ 
+			url: { type: String },
+			cloudinaryId: { type: String },
+			aspectRatio: { 
+				type: String, 
+				enum: ["1:1", "1.91:1", "4:5"],
+				default: "1:1"
+			}
+		}],
 		likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 		comments: [
 			{
@@ -13,6 +21,7 @@ const postSchema = new mongoose.Schema(
 				createdAt: { type: Date, default: Date.now },
 			},
 		],
+		image: { type: String },
 		cloudinaryId: {
 			type: String,
 			// This will store the Cloudinary public_id for deleting images later
