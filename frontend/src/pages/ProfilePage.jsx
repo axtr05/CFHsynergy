@@ -30,7 +30,41 @@ const ProfilePage = () => {
 
 	const { mutate: updateProfile } = useMutation({
 		mutationFn: async (updatedData) => {
-			await axiosInstance.put("/users/profile", updatedData);
+			// Create a regular object for the data
+			const dataToSend = {};
+			
+			// Handle profile picture
+			if (updatedData.profilePicture) {
+				try {
+					// For Cloudinary, we need to send the raw data URL
+					dataToSend.profilePicture = updatedData.profilePicture;
+				} catch (error) {
+					console.error("Error processing profile picture:", error);
+					toast.error("Error processing profile picture");
+					return;
+				}
+			}
+			
+			// Handle banner image
+			if (updatedData.bannerImg) {
+				try {
+					// For Cloudinary, we need to send the raw data URL
+					dataToSend.bannerImg = updatedData.bannerImg;
+				} catch (error) {
+					console.error("Error processing banner image:", error);
+					toast.error("Error processing banner image");
+					return;
+				}
+			}
+			
+			// Copy other data
+			Object.keys(updatedData).forEach(key => {
+				if (key !== 'profilePicture' && key !== 'bannerImg') {
+					dataToSend[key] = updatedData[key];
+				}
+			});
+
+			await axiosInstance.put("/users/profile", dataToSend);
 		},
 		onSuccess: () => {
 			toast.success("Profile updated successfully");
@@ -54,13 +88,61 @@ const ProfilePage = () => {
 		}
 	});
 
-	if (isLoading || isUserProfileLoading) return null;
+	if (isLoading || isUserProfileLoading) {
+		return (
+			<div className="flex justify-center items-center min-h-screen">
+				<div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+			</div>
+		);
+	}
 
 	const isOwnProfile = authUser.username === userProfile.data.username;
-	const userData = isOwnProfile ? authUser : userProfile.data;
+	const userData = userProfile.data;
 
-	const handleSave = (updatedData) => {
-		updateProfile(updatedData);
+	const handleProfileUpdate = async (updatedData) => {
+		try {
+			// Create a regular object for the data
+			const dataToSend = {};
+			
+			// Handle profile picture
+			if (updatedData.profilePicture) {
+				try {
+					// For Cloudinary, we need to send the raw data URL
+					dataToSend.profilePicture = updatedData.profilePicture;
+				} catch (error) {
+					console.error("Error processing profile picture:", error);
+					toast.error("Error processing profile picture");
+					return;
+				}
+			}
+			
+			// Handle banner image
+			if (updatedData.bannerImg) {
+				try {
+					// For Cloudinary, we need to send the raw data URL
+					dataToSend.bannerImg = updatedData.bannerImg;
+				} catch (error) {
+					console.error("Error processing banner image:", error);
+					toast.error("Error processing banner image");
+					return;
+				}
+			}
+			
+			// Copy other data
+			Object.keys(updatedData).forEach(key => {
+				if (key !== 'profilePicture' && key !== 'bannerImg') {
+					dataToSend[key] = updatedData[key];
+				}
+			});
+
+			updateProfile(dataToSend);
+			// We don't need to show toast here as it's handled in onSuccess
+			
+			// The query invalidation is handled in the mutation's onSuccess callback
+		} catch (error) {
+			console.error("Profile update error:", error);
+			toast.error(error.response?.data?.message || 'Failed to update profile');
+		}
 	};
 
 	const handleDelete = () => {
@@ -76,22 +158,29 @@ const ProfilePage = () => {
 	};
 
 	return (
-		<div className='max-w-4xl mx-auto p-4'>
-			<ProfileHeader userData={userData} isOwnProfile={isOwnProfile} onSave={handleSave} />
-			<AboutSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleSave} />
-			<ExperienceSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleSave} />
-			<EducationSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleSave} />
-			<SkillsSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleSave} />
-			{isOwnProfile && (
-				<div className="mt-8 border-t pt-6">
-					<button
-						onClick={handleDelete}
-						className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-					>
-						Delete Account
-					</button>
+		<div className='max-w-5xl mx-auto p-4'>
+			<ProfileHeader userData={userData} isOwnProfile={isOwnProfile} onSave={handleProfileUpdate} />
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+				<div className="lg:col-span-2">
+					<AboutSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleProfileUpdate} />
+					<ExperienceSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleProfileUpdate} />
+					<EducationSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleProfileUpdate} />
 				</div>
-			)}
+				<div className="lg:col-span-1">
+					<SkillsSection userData={userData} isOwnProfile={isOwnProfile} onSave={handleProfileUpdate} />
+					{isOwnProfile && (
+						<div className="mt-6 bg-white shadow rounded-lg p-6">
+							<button
+								onClick={handleDelete}
+								className="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+							>
+								Delete Account
+							</button>
+						</div>
+					)}
+				</div>
+			</div>
+
 			{showDeleteModal && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 					<div className="bg-white p-6 rounded-lg max-w-md w-full">
@@ -129,4 +218,5 @@ const ProfilePage = () => {
 		</div>
 	);
 };
+
 export default ProfilePage;
