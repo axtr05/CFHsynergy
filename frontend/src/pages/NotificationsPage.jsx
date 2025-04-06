@@ -5,11 +5,11 @@ import { ExternalLink, Eye, MessageSquare, ThumbsUp, Trash2, UserPlus } from "lu
 import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { formatDistanceToNow } from "date-fns";
+import { useAuthUser } from "../utils/authHooks";
 
 const NotificationsPage = () => {
-	const { data: authUser } = useQuery({ queryKey: ["authUser"] });
-
 	const queryClient = useQueryClient();
+	const { data: authUser } = useAuthUser();
 
 	const { data: notifications, isLoading } = useQuery({
 		queryKey: ["notifications"],

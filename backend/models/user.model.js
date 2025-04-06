@@ -29,6 +29,34 @@ const userSchema = new mongoose.Schema(
 			type: String,
 			default: "",
 		},
+		isVerified: {
+			type: Boolean,
+			default: false,
+		},
+		organization: {
+			type: String,
+			default: "",
+		},
+		club: {
+			type: String,
+			default: "",
+		},
+		orgLogo: {
+			type: String,
+			default: "",
+		},
+		orgLogoId: {
+			type: String,
+			default: "",
+		},
+		linkedin: {
+			type: String,
+			default: "",
+		},
+		phone: {
+			type: String,
+			default: "",
+		},
 		skills: [String],
 		experience: [
 			{
@@ -37,6 +65,8 @@ const userSchema = new mongoose.Schema(
 				startDate: Date,
 				endDate: Date,
 				description: String,
+				logo: String,
+				logoId: String,
 			},
 		],
 		education: [
@@ -45,12 +75,26 @@ const userSchema = new mongoose.Schema(
 				fieldOfStudy: String,
 				startYear: Number,
 				endYear: Number,
+				logo: String,
+				logoId: String,
 			},
 		],
 		connections: [
 			{
 				type: mongoose.Schema.Types.ObjectId,
 				ref: "User",
+			},
+		],
+		connectionDates: [
+			{
+				userId: {
+					type: mongoose.Schema.Types.ObjectId,
+					ref: "User",
+				},
+				date: {
+					type: Date,
+					default: Date.now,
+				},
 			},
 		],
 		profilePictureId: {

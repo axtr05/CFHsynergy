@@ -62,11 +62,43 @@ export const acceptConnectionRequest = async (req, res) => {
 		}
 
 		request.status = "accepted";
+		const connectionDate = new Date();
+		request.acceptedAt = connectionDate;
 		await request.save();
 
 		// if im your friend then ur also my friend ;)
-		await User.findByIdAndUpdate(request.sender._id, { $addToSet: { connections: userId } });
-		await User.findByIdAndUpdate(userId, { $addToSet: { connections: request.sender._id } });
+		// Add the connection with the current timestamp
+		await User.findByIdAndUpdate(
+			request.sender._id, 
+			{ 
+				$addToSet: { 
+					connections: userId 
+				},
+				// Store the connection date for the sender
+				$push: { 
+					connectionDates: { 
+						userId: userId, 
+						date: connectionDate 
+					} 
+				}
+			}
+		);
+		
+		await User.findByIdAndUpdate(
+			userId, 
+			{ 
+				$addToSet: { 
+					connections: request.sender._id 
+				},
+				// Store the connection date for the recipient
+				$push: { 
+					connectionDates: { 
+						userId: request.sender._id, 
+						date: connectionDate 
+					} 
+				}
+			}
+		);
 
 		const notification = new Notification({
 			recipient: request.sender._id,
@@ -171,9 +203,17 @@ export const getConnectionStatus = async (req, res) => {
 		const targetUserId = req.params.userId;
 		const currentUserId = req.user._id;
 
-		const currentUser = req.user;
+		const currentUser = await User.findById(req.user._id);
 		if (currentUser.connections.includes(targetUserId)) {
-			return res.json({ status: "connected" });
+			// Find the connection date
+			const connectionDateEntry = currentUser.connectionDates.find(
+				entry => entry.userId.toString() === targetUserId.toString()
+			);
+			
+			return res.json({ 
+				status: "connected",
+				connectionDate: connectionDateEntry ? connectionDateEntry.date : null
+			});
 		}
 
 		const pendingRequest = await ConnectionRequest.findOne({
@@ -196,6 +236,62 @@ export const getConnectionStatus = async (req, res) => {
 		res.json({ status: "not_connected" });
 	} catch (error) {
 		console.error("Error in getConnectionStatus controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export const getUserConnectionsByUsername = async (req, res) => {
+	try {
+		const { username } = req.params;
+		
+		const user = await User.findOne({ username }).populate(
+			"connections",
+			"name username profilePicture headline connections"
+		);
+		
+		if (!user) {
+			return res.status(404).json({ message: "User not found" });
+		}
+		
+		res.json(user.connections);
+	} catch (error) {
+		console.error("Error in getUserConnectionsByUsername controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export const getMutualConnections = async (req, res) => {
+	try {
+		const { userId } = req.params;
+		const currentUserId = req.user._id;
+		
+		// Get current user with connections
+		const currentUser = await User.findById(currentUserId);
+		if (!currentUser) {
+			return res.status(404).json({ message: "Current user not found" });
+		}
+		
+		// Get target user with connections
+		const targetUser = await User.findById(userId);
+		if (!targetUser) {
+			return res.status(404).json({ message: "Target user not found" });
+		}
+		
+		// Find mutual connections (the intersection of both connection arrays)
+		const mutualConnectionIds = currentUser.connections.filter(connection => 
+			targetUser.connections.some(targetConnection => 
+				targetConnection.toString() === connection.toString()
+			)
+		);
+		
+		// Get detailed information for mutual connections
+		const mutualConnections = await User.find({
+			_id: { $in: mutualConnectionIds }
+		}).select("name username profilePicture headline connections");
+		
+		res.json(mutualConnections);
+	} catch (error) {
+		console.error("Error in getMutualConnections controller:", error);
 		res.status(500).json({ message: "Server error" });
 	}
 };

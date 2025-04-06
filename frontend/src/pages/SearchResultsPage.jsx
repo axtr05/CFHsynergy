@@ -4,11 +4,12 @@ import { useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import UserCard from "../components/UserCard";
 import { Search } from "lucide-react";
+import { useAuthUser } from "../utils/authHooks";
 
 const SearchResultsPage = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
-  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+  const { data: authUser } = useAuthUser();
 
   const { data: searchResults, isLoading } = useQuery({
     queryKey: ["searchUsers", query],

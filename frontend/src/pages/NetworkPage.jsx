@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../lib/axios";
 import Sidebar from "../components/Sidebar";
 import { UserPlus } from "lucide-react";
 import FriendRequest from "../components/FriendRequest";
 import UserCard from "../components/UserCard";
+import { useAuthUser } from "../utils/authHooks";
 
 const NetworkPage = () => {
-	const { data: user } = useQuery({ queryKey: ["authUser"] });
+	const queryClient = useQueryClient();
+	const { data: user } = useAuthUser();
 
 	const { data: connectionRequests } = useQuery({
 		queryKey: ["connectionRequests"],

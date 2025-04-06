@@ -258,10 +258,27 @@ export const likePost = async (req, res) => {
 		}
 
 		await post.save();
-
 		res.status(200).json(post);
 	} catch (error) {
 		console.error("Error in likePost controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export const getPostsByUser = async (req, res) => {
+	try {
+		const userId = req.params.userId;
+		const limit = parseInt(req.query.limit) || 10; // Default to 10 posts if no limit is provided
+		
+		const posts = await Post.find({ author: userId })
+			.populate("author", "name username profilePicture headline")
+			.populate("comments.user", "name profilePicture username")
+			.sort({ createdAt: -1 })
+			.limit(limit);
+
+		res.status(200).json(posts);
+	} catch (error) {
+		console.error("Error in getPostsByUser controller:", error);
 		res.status(500).json({ message: "Server error" });
 	}
 };

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.55.0",
+    "@tanstack/react-query-devtools": "^5.71.10",
     "axios": "^1.7.7",
     "date-fns": "^3.6.0",
     "linkedin-clone": "file:..",

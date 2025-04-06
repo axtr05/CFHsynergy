@@ -104,12 +104,12 @@ const PostCreation = ({ user }) => {
 	};
 
 	return (
-		<div className='bg-secondary rounded-lg shadow mb-4 p-4'>
+		<div className='bg-white rounded-lg shadow-sm border border-gray-100 mb-4 p-4'>
 			<div className='flex space-x-3'>
 				<img src={user.profilePicture || "/avatar.png"} alt={user.name} className='size-12 rounded-full' />
 				<textarea
 					placeholder="What's on your mind?"
-					className='w-full p-3 rounded-lg bg-base-100 hover:bg-base-200 focus:bg-base-200 focus:outline-none resize-none transition-colors duration-200 min-h-[100px]'
+					className='w-full p-3 rounded-lg bg-gray-50 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none resize-none transition-colors duration-200 min-h-[100px] border border-gray-200'
 					value={content}
 					onChange={(e) => setContent(e.target.value)}
 				/>
@@ -118,7 +118,7 @@ const PostCreation = ({ user }) => {
 			{imagePreviewUrls.length > 0 && (
 				<div className='mt-4'>
 					<div className="flex items-center mb-2 justify-between">
-						<div className="text-sm font-semibold">
+						<div className="text-sm font-semibold text-gray-700">
 							{imagePreviewUrls.length}/10 images
 						</div>
 						<div className="flex space-x-2">
@@ -170,11 +170,11 @@ const PostCreation = ({ user }) => {
 				</div>
 			)}
 
-			<div className='flex justify-between items-center mt-4'>
+			<div className='flex justify-between items-center mt-4 pt-3 border-t border-gray-100'>
 				<div className='flex space-x-4'>
-					<label className='flex items-center text-info hover:text-info-dark transition-colors duration-200 cursor-pointer'>
+					<label className='flex items-center text-gray-500 hover:text-gray-700 transition-colors duration-200 cursor-pointer py-1 px-2 rounded-md hover:bg-gray-50'>
 						<Image size={20} className='mr-2' />
-						<span>Photos</span>
+						<span className="text-sm font-medium">Photos</span>
 						<input 
 							type='file' 
 							accept='image/*' 
@@ -187,7 +187,7 @@ const PostCreation = ({ user }) => {
 				</div>
 
 				<button
-					className='bg-primary text-white rounded-lg px-4 py-2 hover:bg-primary-dark transition-colors duration-200'
+					className='bg-primary text-white rounded-md px-4 py-1.5 hover:bg-primary-dark transition-colors duration-200 text-sm font-medium'
 					onClick={handlePostCreation}
 					disabled={isPending || (!content.trim() && imagePreviewUrls.length === 0)}
 				>

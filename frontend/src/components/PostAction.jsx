@@ -1,8 +1,8 @@
-export default function PostAction({ icon, text, onClick }) {
+export default function PostAction({ icon, text, onClick, className = "" }) {
 	return (
-		<button className='flex items-center' onClick={onClick}>
-			<span className='mr-1'>{icon}</span>
-			<span className='hidden sm:inline'>{text}</span>
+		<button className={`flex items-center py-1.5 px-4 hover:bg-gray-50 rounded-md transition-colors ${className}`} onClick={onClick}>
+			<span className='mr-1.5'>{icon}</span>
+			<span className='text-sm font-medium'>{text}</span>
 		</button>
 	);
 }

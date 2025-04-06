@@ -43,30 +43,25 @@ export const getPublicProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
 	try {
-		const allowedFields = [
-			"name",
-			"username",
-			"headline",
-			"about",
-			"location",
-			"profilePicture",
-			"bannerImg",
-			"skills",
-			"experience",
-			"education",
-		];
-
 		const updatedData = {};
-
-		for (const field of allowedFields) {
-			if (req.body[field] && field !== "profilePicture" && field !== "bannerImg") {
-				updatedData[field] = req.body[field];
-			}
-		}
+		console.log("Updating profile with data:", req.body);
+		
+		// Set fields that are present in the request body
+		if (req.body.name) updatedData.name = req.body.name;
+		if (req.body.headline) updatedData.headline = req.body.headline;
+		if (req.body.location) updatedData.location = req.body.location;
+		if (req.body.about) updatedData.about = req.body.about;
+		if (req.body.organization) updatedData.organization = req.body.organization;
+		if (req.body.club) updatedData.club = req.body.club;
+		if (req.body.skills) updatedData.skills = req.body.skills;
+		if (req.body.linkedin !== undefined) updatedData.linkedin = req.body.linkedin;
+		if (req.body.phone !== undefined) updatedData.phone = req.body.phone;
+		if (req.body.email) updatedData.email = req.body.email;
 
 		// Get current user info for cloudinary IDs
 		const currentUser = await User.findById(req.user._id);
 
+		// Process profile picture if provided
 		if (req.body.profilePicture) {
 			// Upload to Cloudinary
 			const uploadResult = await cloudinary.uploader.upload(req.body.profilePicture, {
@@ -81,6 +76,7 @@ export const updateProfile = async (req, res) => {
 			}
 		}
 
+		// Process banner image if provided
 		if (req.body.bannerImg) {
 			// Upload to Cloudinary
 			const uploadResult = await cloudinary.uploader.upload(req.body.bannerImg, {
@@ -93,6 +89,97 @@ export const updateProfile = async (req, res) => {
 			if (currentUser.bannerImgId) {
 				await cloudinary.uploader.destroy(currentUser.bannerImgId);
 			}
+		}
+		
+		// Process organization logo if provided
+		if (req.body.orgLogo) {
+			// Upload to Cloudinary if it's a data URL
+			if (req.body.orgLogo.startsWith('data:')) {
+				const uploadResult = await cloudinary.uploader.upload(req.body.orgLogo, {
+					folder: "cfh-synergy/org-logos",
+				});
+				updatedData.orgLogo = uploadResult.secure_url;
+				updatedData.orgLogoId = uploadResult.public_id;
+				
+				// Delete old logo if exists
+				if (currentUser.orgLogoId) {
+					try {
+						await cloudinary.uploader.destroy(currentUser.orgLogoId);
+					} catch (error) {
+						console.error("Error deleting old organization logo:", error);
+					}
+				}
+			}
+		}
+
+		// Process experience array and upload logos
+		if (req.body.experience) {
+			const processedExperience = await Promise.all(
+				req.body.experience.map(async (exp) => {
+					// Skip processing if no logo or if logo is already a URL (not a base64 image)
+					if (!exp.logo || exp.logo.startsWith('http')) {
+						return exp;
+					}
+
+					// Process and upload the logo
+					const uploadResult = await cloudinary.uploader.upload(exp.logo, {
+						folder: "cfh-synergy/exp-logos",
+					});
+
+					// Delete old logo if it exists
+					if (exp.logoId) {
+						try {
+							await cloudinary.uploader.destroy(exp.logoId);
+						} catch (error) {
+							console.error("Error deleting old experience logo:", error);
+						}
+					}
+
+					// Return experience with updated logo
+					return {
+						...exp,
+						logo: uploadResult.secure_url,
+						logoId: uploadResult.public_id
+					};
+				})
+			);
+
+			updatedData.experience = processedExperience;
+		}
+
+		// Process education array and upload logos
+		if (req.body.education) {
+			const processedEducation = await Promise.all(
+				req.body.education.map(async (edu) => {
+					// Skip processing if no logo or if logo is already a URL (not a base64 image)
+					if (!edu.logo || edu.logo.startsWith('http')) {
+						return edu;
+					}
+
+					// Process and upload the logo
+					const uploadResult = await cloudinary.uploader.upload(edu.logo, {
+						folder: "cfh-synergy/edu-logos",
+					});
+
+					// Delete old logo if it exists
+					if (edu.logoId) {
+						try {
+							await cloudinary.uploader.destroy(edu.logoId);
+						} catch (error) {
+							console.error("Error deleting old education logo:", error);
+						}
+					}
+
+					// Return education with updated logo
+					return {
+						...edu,
+						logo: uploadResult.secure_url,
+						logoId: uploadResult.public_id
+					};
+				})
+			);
+
+			updatedData.education = processedEducation;
 		}
 
 		const user = await User.findByIdAndUpdate(
@@ -159,6 +246,41 @@ export const deleteUser = async (req, res) => {
 				console.error("Error deleting banner image:", error);
 			}
 		}
+		
+		// Delete organization logo if it exists
+		if (user.orgLogoId) {
+			try {
+				await cloudinary.uploader.destroy(user.orgLogoId);
+			} catch (error) {
+				console.error("Error deleting organization logo:", error);
+			}
+		}
+
+		// Delete experience logos from Cloudinary
+		if (user.experience && user.experience.length > 0) {
+			for (const exp of user.experience) {
+				if (exp.logoId) {
+					try {
+						await cloudinary.uploader.destroy(exp.logoId);
+					} catch (error) {
+						console.error("Error deleting experience logo:", error);
+					}
+				}
+			}
+		}
+
+		// Delete education logos from Cloudinary
+		if (user.education && user.education.length > 0) {
+			for (const edu of user.education) {
+				if (edu.logoId) {
+					try {
+						await cloudinary.uploader.destroy(edu.logoId);
+					} catch (error) {
+						console.error("Error deleting education logo:", error);
+					}
+				}
+			}
+		}
 
 		// Finally delete the user
 		await User.findByIdAndDelete(user._id);
@@ -194,6 +316,30 @@ export const searchUsers = async (req, res) => {
 		res.json(users);
 	} catch (error) {
 		console.error("Error in searchUsers controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export const toggleVerification = async (req, res) => {
+	try {
+		const { userId } = req.params;
+		
+		// In a real application, this would check for admin privileges
+		// For now, we'll allow any authenticated user to toggle verification
+		// In production, add middleware to check for admin role
+		
+		const user = await User.findById(userId);
+		if (!user) {
+			return res.status(404).json({ message: "User not found" });
+		}
+		
+		// Toggle the verification status
+		user.isVerified = !user.isVerified;
+		await user.save();
+		
+		res.json({ message: "User verification status updated", isVerified: user.isVerified });
+	} catch (error) {
+		console.error("Error in toggleVerification controller:", error);
 		res.status(500).json({ message: "Server error" });
 	}
 };

@@ -5,6 +5,8 @@ import {
 	getConnectionRequests,
 	getConnectionStatus,
 	getUserConnections,
+	getUserConnectionsByUsername,
+	getMutualConnections,
 	rejectConnectionRequest,
 	removeConnection,
 	sendConnectionRequest,
@@ -19,6 +21,10 @@ router.put("/reject/:requestId", protectRoute, rejectConnectionRequest);
 router.get("/requests", protectRoute, getConnectionRequests);
 // Get all connections for a user
 router.get("/", protectRoute, getUserConnections);
+// Get all connections for a user by username
+router.get("/user/:username", protectRoute, getUserConnectionsByUsername);
+// Get mutual connections between current user and another user
+router.get("/mutual/:userId", protectRoute, getMutualConnections);
 router.delete("/:userId", protectRoute, removeConnection);
 router.get("/status/:userId", protectRoute, getConnectionStatus);
 

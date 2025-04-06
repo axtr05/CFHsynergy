@@ -1,12 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../../lib/axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Bell, Home, LogOut, User, Users, ChevronDown } from "lucide-react";
 import SearchBar from "../SearchBar";
 import { useState, useRef, useEffect } from "react";
+import { toast } from "react-hot-toast";
 
 const Navbar = () => {
-	const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+	const navigate = useNavigate();
+	const { data: authUser } = useQuery({ 
+		queryKey: ["authUser"],
+		queryFn: () => axiosInstance.get('/auth/me').then(res => res.data),
+	});
 	const queryClient = useQueryClient();
 	const [showDropdown, setShowDropdown] = useState(false);
 	const dropdownRef = useRef(null);
@@ -26,8 +31,19 @@ const Navbar = () => {
 	const { mutate: logout } = useMutation({
 		mutationFn: () => axiosInstance.post("/auth/logout"),
 		onSuccess: () => {
+			// Show success message
+			toast.success("Logged out successfully");
+			// First set authUser to null in the cache
+			queryClient.setQueryData(["authUser"], null);
+			// Then invalidate the query to trigger a refetch
 			queryClient.invalidateQueries({ queryKey: ["authUser"] });
+			// Redirect to login page
+			navigate('/login');
 		},
+		onError: (error) => {
+			toast.error("Error logging out. Please try again.");
+			console.error("Logout error:", error);
+		}
 	});
 
 	const unreadNotificationCount = notifications?.data.filter((notif) => !notif.read).length;
