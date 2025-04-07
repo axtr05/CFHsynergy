@@ -251,6 +251,19 @@ const ProjectCard = ({ project }) => {
   return (
     <div className="block cursor-pointer" onClick={handleCardClick}>
       <div className="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        {/* Stage Banner - New addition */}
+        <div className={`w-full px-4 py-1 text-center text-white text-xs font-medium
+          ${project.stage === "idea" ? "bg-blue-500" :
+            project.stage === "buildingMVP" ? "bg-indigo-600" :
+            project.stage === "MVP" ? "bg-purple-600" :
+            project.stage === "prototype" ? "bg-pink-600" :
+            project.stage === "fundraising" ? "bg-green-600" :
+            project.stage === "growth" ? "bg-yellow-600" :
+            project.stage === "exit" ? "bg-red-600" : "bg-gray-500"
+          }`}>
+          {getStageLabel(project.stage)}
+        </div>
+        
         {project.poster ? (
           <img
             src={project.poster}
@@ -276,9 +289,6 @@ const ProjectCard = ({ project }) => {
                 <span className="text-sm text-gray-600">{project.founder?.name}</span>
               </div>
             </div>
-            <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">
-              {getStageLabel(project.stage)}
-            </span>
           </div>
           
           <p className="text-gray-600 text-sm mt-2 line-clamp-2">
@@ -320,82 +330,57 @@ const ProjectCard = ({ project }) => {
             {activeTab === null && (
               <div className="p-4">
                 {project.openRoles && project.openRoles.length > 0 ? (
-                  project.openRoles.map((role, index) => {
-                    // Check for role-specific application status
-                    const userApplication = user && project.applications?.find(
-                      app => app.userId._id === user._id && app.roleTitle === role.title
-                    );
-                    
-                    const isFilled = role.filled >= role.limit;
-                    const isRejected = userApplication && userApplication.status === "rejected";
-                    const isPending = userApplication && userApplication.status === "pending";
-                    const isAccepted = userApplication && userApplication.status === "accepted";
-                    const isCancelled = userApplication && userApplication.status === "cancelled";
-                    
-                    // Set button text and style based on status
-                    let buttonText = "Apply for this role";
-                    let buttonClass = "text-gray-700";
-                    let iconClass = "bg-purple-600";
-                    let disabled = false;
-                    
-                    if (isFilled) {
-                      buttonText = "Position filled";
-                      buttonClass = "text-gray-400";
-                      iconClass = "bg-gray-400";
-                      disabled = true;
-                    } else if (isRejected) {
-                      buttonText = "Application rejected";
-                      buttonClass = "text-gray-400";
-                      iconClass = "bg-red-400";
-                      disabled = true;
-                    } else if (isPending) {
-                      buttonText = "Application pending";
-                      buttonClass = "text-blue-600";
-                      iconClass = "bg-blue-600";
-                      disabled = true;
-                    } else if (isAccepted) {
-                      buttonText = "Application accepted";
-                      buttonClass = "text-green-600";
-                      iconClass = "bg-green-600";
-                      disabled = true;
-                    } else if (isCancelled) {
-                      buttonText = "Reapply for this role";
-                      buttonClass = "text-purple-600";
-                      iconClass = "bg-purple-600";
-                      disabled = false;
-                    }
-                    
-                    return (
-                      <div key={index} className="mb-2 last:mb-0">
-                        <div className="flex items-start gap-2 p-2 rounded">
-                          <div className="flex-grow">
-                            <div className="flex justify-between">
-                              <span className="font-medium">{role.title}</span>
-                              <span className="text-xs text-gray-500">
-                                {role.filled}/{role.limit} filled
-                              </span>
-                            </div>
-                            {role.description && (
-                              <p className="text-xs text-gray-500 mt-1">{role.description}</p>
-                            )}
-                          </div>
+                  <div className="space-y-2">
+                    {project.openRoles.map((role, index) => {
+                      // Check for role-specific application status
+                      const userApplication = user && project.applications?.find(
+                        app => app.userId._id === user._id && app.roleTitle === role.title
+                      );
+                      
+                      const isFilled = role.filled >= role.limit;
+                      const isRejected = userApplication && userApplication.status === "rejected";
+                      const isPending = userApplication && userApplication.status === "pending";
+                      const isAccepted = userApplication && userApplication.status === "accepted";
+                      const isCancelled = userApplication && userApplication.status === "cancelled";
+                      
+                      // Determine button state
+                      let buttonDisabled = false;
+                      let buttonBg = "bg-purple-600 hover:bg-purple-700";
+                      let buttonText = role.title;
+                      
+                      if (isFilled) {
+                        buttonDisabled = true;
+                        buttonBg = "bg-gray-400";
+                        buttonText = `${role.title} (Filled)`;
+                      } else if (isRejected) {
+                        buttonDisabled = true;
+                        buttonBg = "bg-red-400";
+                        buttonText = `${role.title} (Rejected)`;
+                      } else if (isPending) {
+                        buttonDisabled = true;
+                        buttonBg = "bg-blue-500";
+                        buttonText = `${role.title} (Pending)`;
+                      } else if (isAccepted) {
+                        buttonDisabled = true;
+                        buttonBg = "bg-green-500";
+                        buttonText = `${role.title} (Accepted)`;
+                      }
+                      
+                      return (
+                        <div key={index} className="flex items-center gap-3 mb-2">
+                          <button
+                            onClick={() => handleRoleClick(role)}
+                            disabled={buttonDisabled}
+                            className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded text-white transition-colors ${buttonDisabled ? 'opacity-70 cursor-not-allowed bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}
+                            aria-label={`Apply for ${role.title}`}
+                          >
+                            <Plus size={16} />
+                          </button>
+                          <span className="text-sm text-gray-700">{role.title} role</span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRoleClick(role);
-                          }}
-                          disabled={disabled}
-                          className={`w-full flex items-center gap-2 hover:bg-gray-100 p-2 rounded ${disabled ? 'cursor-not-allowed opacity-70' : ''}`}
-                        >
-                          <div className={`${iconClass} rounded-full w-6 h-6 flex items-center justify-center text-white text-sm`}>
-                            {isPending ? '⏳' : isAccepted ? '✓' : isRejected ? '✗' : '+'}
-                          </div>
-                          <span className={buttonClass}>{buttonText}</span>
-                        </button>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </div>
                 ) : (
                   <p className="text-gray-500 italic text-sm text-center py-2">No open roles at the moment</p>
                 )}
@@ -517,52 +502,88 @@ const ProjectCard = ({ project }) => {
         )}
       </div>
 
-      {/* Application Modal - also needs stopPropagation */}
+      {/* Application Modal */}
       {showApplicationModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowApplicationModal(false);
+          }}
         >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Apply for {selectedRole?.title}</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Why do you want to join this project?
-              </label>
-              <textarea
-                value={applicationMessage}
-                onChange={(e) => setApplicationMessage(e.target.value)}
-                className="w-full p-2 border rounded-md"
-                rows="4"
-                placeholder="Tell us about your interest and relevant experience..."
-              />
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 m-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Apply for Role</h3>
+              <button
+                onClick={() => setShowApplicationModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowApplicationModal(false);
-                  setApplicationMessage("");
-                  setSelectedRole(null);
-                }}
-                className="btn btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSubmitApplication();
-                }}
-                disabled={isSubmitting}
-                className="btn btn-primary"
-              >
-                {isSubmitting ? (
-                  <Loader size={16} className="animate-spin" />
-                ) : (
-                  "Submit Application"
-                )}
-              </button>
+            
+            <div className="mb-6">
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <div className="flex gap-3 items-start">
+                  <div className="bg-purple-100 rounded-full p-2 text-purple-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-lg">{selectedRole?.title}</h4>
+                    <p className="text-gray-500 text-sm">{project.name}</p>
+                    <p className="text-sm mt-2">{selectedRole?.description || "No description provided for this role."}</p>
+                    <div className="flex items-center mt-3">
+                      <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">
+                        {selectedRole?.filled || 0}/{selectedRole?.limit || 1} positions filled
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Why are you a good fit for this role?
+                </label>
+                <textarea
+                  value={applicationMessage}
+                  onChange={(e) => setApplicationMessage(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  rows={4}
+                  placeholder="Describe your relevant experience, skills, and why you're interested in this role..."
+                ></textarea>
+              </div>
+              
+              <div className="mt-5 sm:mt-6 flex gap-3">
+                <button
+                  type="button"
+                  className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  onClick={() => setShowApplicationModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:mt-0 sm:w-auto sm:text-sm ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
+                  onClick={handleSubmitApplication}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit Application'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
