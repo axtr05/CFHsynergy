@@ -1,4 +1,3 @@
-import { sendConnectionAcceptedEmail } from "../emails/emailHandlers.js";
 import ConnectionRequest from "../models/connectionRequest.model.js";
 import Notification from "../models/notification.model.js";
 import User from "../models/user.model.js";
@@ -109,17 +108,6 @@ export const acceptConnectionRequest = async (req, res) => {
 		await notification.save();
 
 		res.json({ message: "Connection accepted successfully" });
-
-		const senderEmail = request.sender.email;
-		const senderName = request.sender.name;
-		const recipientName = request.recipient.name;
-		const profileUrl = process.env.CLIENT_URL + "/profile/" + request.recipient.username;
-
-		try {
-			await sendConnectionAcceptedEmail(senderEmail, senderName, recipientName, profileUrl);
-		} catch (error) {
-			console.error("Error in sendConnectionAcceptedEmail:", error);
-		}
 	} catch (error) {
 		console.error("Error in acceptConnectionRequest controller:", error);
 		res.status(500).json({ message: "Server error" });

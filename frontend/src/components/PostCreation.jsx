@@ -13,6 +13,11 @@ const PostCreation = ({ user }) => {
 
 	const queryClient = useQueryClient();
 
+	// If the user object is undefined or not fully loaded, don't render the component
+	if (!user) {
+		return null;
+	}
+
 	const { mutate: createPostMutation, isPending } = useMutation({
 		mutationFn: async (postData) => {
 			const res = await axiosInstance.post("/posts/create", postData, {
@@ -106,7 +111,7 @@ const PostCreation = ({ user }) => {
 	return (
 		<div className='bg-white rounded-lg shadow-sm border border-gray-100 mb-4 p-4'>
 			<div className='flex space-x-3'>
-				<img src={user.profilePicture || "/avatar.png"} alt={user.name} className='size-12 rounded-full' />
+				<img src={user?.profilePicture || "/avatar.png"} alt={user?.name || "User"} className='size-12 rounded-full' />
 				<textarea
 					placeholder="What's on your mind?"
 					className='w-full p-3 rounded-lg bg-gray-50 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none resize-none transition-colors duration-200 min-h-[100px] border border-gray-200'

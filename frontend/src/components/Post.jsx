@@ -25,7 +25,7 @@ const MAX_CONTENT_LENGTH = 150; // Number of characters to show before "See more
 const Post = ({ post, displayActions = true, refetchComments }) => {
 	const { postId } = useParams();
 	const [activeImageIndex, setActiveImageIndex] = useState(0);
-	const [content, setContent] = useState(post.content);
+	const [content, setContent] = useState(post?.content || "");
 	const [isEditing, setIsEditing] = useState(false);
 	const [commentText, setCommentText] = useState("");
 	const [showComments, setShowComments] = useState(false);
@@ -36,15 +36,21 @@ const Post = ({ post, displayActions = true, refetchComments }) => {
 	const optionsRef = useRef(null);
 	const queryClient = useQueryClient();
 	const { data: authUser } = useAuthUser();
-	const [comments, setComments] = useState(post.comments || []);
-	const isOwner = authUser._id === post.author._id;
-	const isLiked = post.likes.includes(authUser._id);
+	const [comments, setComments] = useState(post?.comments || []);
+	
+	// If post or authUser is undefined, don't render anything
+	if (!post || !authUser) {
+		return null;
+	}
+	
+	const isOwner = authUser?._id === post?.author?._id;
+	const isLiked = post?.likes?.includes(authUser?._id);
 	
 	// Determine if content should be truncated
-	const shouldTruncate = post.content.length > MAX_CONTENT_LENGTH;
+	const shouldTruncate = (post?.content?.length || 0) > MAX_CONTENT_LENGTH;
 	const displayContent = shouldTruncate && !isExpanded 
-		? post.content.substring(0, MAX_CONTENT_LENGTH) + '...' 
-		: post.content;
+		? post?.content?.substring(0, MAX_CONTENT_LENGTH) + '...' 
+		: post?.content;
 	
 	// Close modal on ESC key press
 	useEffect(() => {
@@ -164,20 +170,20 @@ const Post = ({ post, displayActions = true, refetchComments }) => {
 					<div className='flex items-center'>
 						<Link to={`/profile/${post?.author?.username}`}>
 							<img
-								src={post.author.profilePicture || "/avatar.png"}
-								alt={post.author.name}
+								src={post?.author?.profilePicture || "/avatar.png"}
+								alt={post?.author?.name || "User"}
 								className='size-10 rounded-full mr-3'
 							/>
 						</Link>
 
 						<div>
 							<Link to={`/profile/${post?.author?.username}`}>
-								<h3 className='font-semibold text-gray-900'>{post.author.name}</h3>
+								<h3 className='font-semibold text-gray-900'>{post?.author?.name || "Unknown User"}</h3>
 							</Link>
-							<p className='text-xs text-gray-500'>{post.author.headline}</p>
+							<p className='text-xs text-gray-500'>{post?.author?.headline || ""}</p>
 							<p className='text-xs text-gray-500'>
-								{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-								{post.edited && <span className='ml-1'>· Edited</span>}
+								{formatDistanceToNow(new Date(post?.createdAt || Date.now()), { addSuffix: true })}
+								{post?.edited && <span className='ml-1'>· Edited</span>}
 							</p>
 						</div>
 					</div>

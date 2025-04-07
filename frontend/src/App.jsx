@@ -5,6 +5,7 @@ import Layout from "./components/layout/Layout";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/auth/LoginPage";
 import SignUpPage from "./pages/auth/SignUpPage";
+import RoleSelectionPage from "./pages/auth/RoleSelectionPage";
 import toast, { Toaster } from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
 import { axiosInstance } from "./lib/axios";
@@ -15,6 +16,10 @@ import ProfilePage from "./pages/ProfilePage";
 import ConnectionsPage from "./pages/ConnectionsPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import UserActivityPage from "./pages/UserActivityPage";
+import ProjectsPage from "./pages/ProjectsPage";
+import CreateProjectPage from "./pages/CreateProjectPage";
+import ProjectDetailPage from "./pages/ProjectDetailPage";
+import EditProjectPage from "./pages/EditProjectPage";
 
 // Error Boundary Component for network errors
 const ConnectionErrorBanner = ({ isVisible, onRetry }) => {
@@ -146,6 +151,19 @@ function App() {
 		);
 	}
 
+	// Redirect to role selection if user is authenticated but hasn't selected a role
+	const needsRoleSelection = authUser && !authUser.userRole;
+	
+	// Debug auth state
+	console.log("Auth state:", { 
+		authUser: authUser ? `User: ${authUser.username}` : 'No user', 
+		needsRoleSelection,
+		isLoading
+	});
+
+	// Special case for role selection - track if we need to bypass protection
+	const isDirectlyAfterSignup = sessionStorage.getItem('justSignedUp') === 'true';
+
 	return (
 		<>
 			<ConnectionErrorBanner 
@@ -155,9 +173,35 @@ function App() {
 			
 			<Layout>
 				<Routes>
-					<Route path='/' element={authUser ? <HomePage /> : <Navigate to={"/login"} />} />
-					<Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to={"/"} />} />
+					<Route 
+						path='/' 
+						element={
+							authUser 
+								? needsRoleSelection 
+									? <Navigate to="/role-selection" /> 
+									: <HomePage />
+								: <Navigate to="/login" />
+						} 
+					/>
+					<Route 
+						path='/signup' 
+						element={
+							!authUser 
+								? (
+									<SignUpPage 
+										onSignupSuccess={() => {
+											sessionStorage.setItem('justSignedUp', 'true');
+										}} 
+									/>
+								) 
+								: <Navigate to={"/"} />
+						} 
+					/>
 					<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to={"/"} />} />
+					<Route 
+						path='/role-selection' 
+						element={<RoleSelectionPage />}
+					/>
 					<Route path='/notifications' element={authUser ? <NotificationsPage /> : <Navigate to={"/login"} />} />
 					<Route path='/network' element={authUser ? <NetworkPage /> : <Navigate to={"/login"} />} />
 					<Route path='/post/:postId' element={authUser ? <PostPage /> : <Navigate to={"/login"} />} />
@@ -166,6 +210,19 @@ function App() {
 					<Route path='/connections/:username' element={authUser ? <ConnectionsPage /> : <Navigate to={"/login"} />} />
 					<Route path='/connections/:username/:type' element={authUser ? <ConnectionsPage /> : <Navigate to={"/login"} />} />
 					<Route path='/search' element={authUser ? <SearchResultsPage /> : <Navigate to={"/login"} />} />
+					
+					{/* Project Routes */}
+					<Route path='/projects' element={authUser ? <ProjectsPage /> : <Navigate to={"/login"} />} />
+					<Route 
+						path='/projects/create' 
+						element={
+							authUser 
+								? (authUser.userRole === "founder" ? <CreateProjectPage /> : <Navigate to={"/projects"} />)
+								: <Navigate to={"/login"} />
+						} 
+					/>
+					<Route path='/projects/:projectId' element={authUser ? <ProjectDetailPage /> : <Navigate to={"/login"} />} />
+					<Route path='/projects/:projectId/edit' element={authUser ? <EditProjectPage /> : <Navigate to={"/login"} />} />
 				</Routes>
 				<Toaster />
 			</Layout>

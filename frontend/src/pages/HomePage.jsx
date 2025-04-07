@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
 	const navigate = useNavigate();
-	const { data: authUser } = useAuthUser();
+	const { data: authUser, isLoading: isAuthLoading } = useAuthUser();
 
 	const { data: recommendedUsers } = useQuery({
 		queryKey: ["recommendedUsers"],
@@ -18,15 +18,30 @@ const HomePage = () => {
 			const res = await axiosInstance.get("/users/suggestions");
 			return res.data;
 		},
+		enabled: !!authUser
 	});
 
-	const { data: posts, isLoading } = useQuery({
+	const { data: posts, isLoading: isPostsLoading } = useQuery({
 		queryKey: ["posts"],
 		queryFn: async () => {
 			const res = await axiosInstance.get("/posts");
 			return res.data;
 		},
+		enabled: !!authUser
 	});
+
+	if (isAuthLoading) {
+		return (
+			<div className="flex justify-center items-center min-h-screen">
+				<div className="flex flex-col items-center gap-3">
+					<Loader2 className="h-10 w-10 animate-spin text-primary" />
+					<p className="text-gray-600 font-medium">Loading...</p>
+				</div>
+			</div>
+		);
+	}
+
+	const isLoading = isPostsLoading;
 
 	return (
 		<div className='grid grid-cols-1 lg:grid-cols-4 gap-6'>

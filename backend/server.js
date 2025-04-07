@@ -10,6 +10,7 @@ import userRoutes from "./routes/user.route.js";
 import postRoutes from "./routes/post.route.js";
 import notificationRoutes from "./routes/notification.route.js";
 import connectionRoutes from "./routes/connection.route.js";
+import projectRoutes from "./routes/project.route.js";
 
 import { connectDB } from "./lib/db.js";
 
@@ -31,10 +32,17 @@ if (process.env.NODE_ENV !== "production") {
 			origin: "http://localhost:5173",
 			credentials: true,
 			methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-			allowedHeaders: ["Content-Type", "Authorization"]
+			allowedHeaders: ["Content-Type", "Authorization"],
+			exposedHeaders: ["set-cookie"]
 		})
 	);
 }
+
+// Add some debug logging for requests
+app.use((req, res, next) => {
+	console.log(`${req.method} ${req.url}`);
+	next();
+});
 
 // Increase payload size limit and add proper error handling
 app.use(express.json({ 
@@ -85,6 +93,7 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/posts", postRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/connections", connectionRoutes);
+app.use("/api/v1/projects", projectRoutes);
 
 if (process.env.NODE_ENV === "production") {
 	app.use(express.static(path.join(__dirname, "/frontend/dist")));

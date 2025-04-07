@@ -10,9 +10,13 @@ const LoginForm = () => {
 	const queryClient = useQueryClient();
 
 	const { mutate: loginMutation, isLoading } = useMutation({
-		mutationFn: (userData) => axiosInstance.post("/auth/login", userData),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["authUser"] });
+		mutationFn: async (userData) => {
+			const res = await axiosInstance.post("/auth/login", userData);
+			return res.data;
+		},
+		onSuccess: (data) => {
+			// Manually set the auth user data in the query cache
+			queryClient.setQueryData(["authUser"], data);
 		},
 		onError: (err) => {
 			toast.error(err.response.data.message || "Something went wrong");

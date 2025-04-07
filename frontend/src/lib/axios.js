@@ -11,9 +11,11 @@ export const axiosInstance = axios.create({
 	maxBodyLength: 10 * 1024 * 1024, // 10MB max body length
 });
 
-// Add request interceptor for better error handling
+// Add request interceptor for better error handling and logging
 axiosInstance.interceptors.request.use(
 	(config) => {
+		console.log(`REQUEST: ${config.method.toUpperCase()} ${config.url}`, 
+			config.data ? { data: config.data } : '');
 		return config;
 	},
 	(error) => {
@@ -22,13 +24,23 @@ axiosInstance.interceptors.request.use(
 	}
 );
 
-// Add response interceptor with retry logic
+// Add response interceptor with retry logic and better logging
 axiosInstance.interceptors.response.use(
 	(response) => {
+		console.log(`RESPONSE: ${response.status} ${response.config.method.toUpperCase()} ${response.config.url}`, 
+			{ data: response.data });
 		return response;
 	},
 	async (error) => {
 		const originalRequest = error.config;
+		
+		// Log the error details
+		console.error(`API Error: ${originalRequest.method.toUpperCase()} ${originalRequest.url}`, {
+			status: error.response?.status,
+			statusText: error.response?.statusText,
+			data: error.response?.data,
+			message: error.message
+		});
 		
 		// Only retry idempotent methods (GET, PUT, DELETE, etc.) Not POST
 		// And only retry once (no infinite loops)

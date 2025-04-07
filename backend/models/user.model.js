@@ -19,11 +19,17 @@ const userSchema = new mongoose.Schema(
 		},
 		headline: {
 			type: String,
-			default: "CFHsynergy User",
+			default: function() {
+				const role = this.userRole;
+				if (role === 'investor') return "Investor";
+				if (role === 'founder') return "Founder";
+				if (role === 'jobseeker') return "Job Seeker";
+				return "User";
+			}
 		},
 		location: {
 			type: String,
-			default: "Earth",
+			default: "Hyderabad, Telangana, India",
 		},
 		about: {
 			type: String,
@@ -56,6 +62,62 @@ const userSchema = new mongoose.Schema(
 		phone: {
 			type: String,
 			default: "",
+		},
+		// Role-related fields
+		userRole: {
+			type: String,
+			enum: ["founder", "investor", "jobseeker"],
+			default: "founder",
+		},
+		// For investors
+		investmentRange: {
+			min: {
+				type: Number,
+				default: 0,
+			},
+			max: {
+				type: Number,
+				default: 0,
+			},
+		},
+		investmentInterests: [String], // Domains the investor is interested in
+		// For job seekers
+		currentRole: {
+			type: String,
+			default: "",
+		},
+		currentStartup: {
+			startupId: {
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Project", // Will create this model
+			},
+			role: {
+				type: String,
+				default: "",
+			},
+			joinDate: {
+				type: Date,
+			},
+		},
+		pastStartups: [
+			{
+				startupId: {
+					type: mongoose.Schema.Types.ObjectId,
+					ref: "Project",
+				},
+				role: {
+					type: String,
+				},
+				joinDate: {
+					type: Date,
+				},
+				exitDate: {
+					type: Date,
+				},
+			},
+		],
+		birthDate: {
+			type: Date,
 		},
 		skills: [String],
 		experience: [
@@ -102,6 +164,11 @@ const userSchema = new mongoose.Schema(
 		},
 		bannerImgId: {
 			type: String,
+		},
+		// Optional flag to track if the user has completed initial onboarding
+		onboardingCompleted: {
+			type: Boolean,
+			default: false,
 		},
 	},
 	{ timestamps: true }

@@ -27,18 +27,23 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 	});
 
 	const { data: connectionStatus, refetch: refetchConnectionStatus } = useQuery({
-		queryKey: ["connectionStatus", userData._id],
-		queryFn: () => axiosInstance.get(`/connections/status/${userData._id}`),
-		enabled: !isOwnProfile,
+		queryKey: ["connectionStatus", userData?._id],
+		queryFn: () => axiosInstance.get(`/connections/status/${userData?._id}`),
+		enabled: !isOwnProfile && !!userData?._id,
 	});
 
 	const { data: mutualConnections } = useQuery({
-		queryKey: ["mutualConnections", userData._id],
-		queryFn: () => axiosInstance.get(`/connections/mutual/${userData._id}`),
-		enabled: !isOwnProfile,
+		queryKey: ["mutualConnections", userData?._id],
+		queryFn: () => axiosInstance.get(`/connections/mutual/${userData?._id}`),
+		enabled: !isOwnProfile && !!userData?._id,
 	});
 
-	const isConnected = userData.connections.some((connection) => connection === authUser._id);
+	// If userData is undefined or incomplete, don't try to render the component
+	if (!userData) {
+		return null;
+	}
+
+	const isConnected = userData?.connections?.some((connection) => connection === authUser?._id);
 	const mutualConnectionsCount = mutualConnections?.data?.length || 0;
 
 	const { mutate: sendConnectionRequest } = useMutation({
@@ -49,7 +54,7 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 			queryClient.invalidateQueries(["connectionRequests"]);
 		},
 		onError: (error) => {
-			toast.error(error.response?.data?.message || "An error occurred");
+			toast.error(error?.response?.data?.message || "An error occurred");
 		},
 	});
 
@@ -313,11 +318,11 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 									to={`/connections/${userData.username}`} 
 									className='text-blue-600 text-sm font-medium hover:underline'
 								>
-									{userData.connections?.length || 0}+ connections
+									Connections
 								</Link>
 							) : (
 								<div className='text-blue-600 text-sm font-medium'>
-									{userData.connections?.length || 0}+ connections
+									Connections
 								</div>
 							)}
 							
@@ -331,7 +336,7 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 										to={`/connections/${userData.username}/mutual`} 
 										className='text-gray-600 text-sm hover:text-blue-600 hover:underline'
 									>
-										{mutualConnectionsCount} mutual connection{mutualConnectionsCount !== 1 ? 's' : ''}
+										Mutual connections
 									</Link>
 								</div>
 							)}
