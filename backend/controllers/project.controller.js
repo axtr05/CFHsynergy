@@ -129,8 +129,13 @@ export const getUserProjects = async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // Find projects where user is the founder
-    const projects = await Project.find({ founder: userId })
+    // Find projects where user is the founder or a team member
+    const projects = await Project.find({
+      $or: [
+        { founder: userId },
+        { "teamMembers.userId": userId }
+      ]
+    })
       .sort({ createdAt: -1 })
       .populate("founder", "name username profilePicture")
       .populate("teamMembers.userId", "name username profilePicture")

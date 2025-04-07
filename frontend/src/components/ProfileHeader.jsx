@@ -7,7 +7,7 @@ import { getCroppedImg } from '../utils/cropImage';
 import { Link } from "react-router-dom";
 import PostsList from "./PostsList";
 
-import { Camera, Clock, MapPin, UserCheck, UserPlus, X, Briefcase, Mail, Link as LinkIcon, Users, CheckCircle, Phone, Linkedin } from "lucide-react";
+import { Camera, Clock, MapPin, UserCheck, UserPlus, X, Briefcase, Mail, Link as LinkIcon, Users, CheckCircle, Phone, Linkedin, Layout, Layers } from "lucide-react";
 
 const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 	const [isEditing, setIsEditing] = useState(false);
@@ -19,6 +19,7 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 	const [showCropper, setShowCropper] = useState(false);
 	const [showContactInfo, setShowContactInfo] = useState(false);
 	const [showFullAbout, setShowFullAbout] = useState(false);
+	const [activeActivityTab, setActiveActivityTab] = useState("posts");
 	const queryClient = useQueryClient();
 
 	const { data: authUser } = useQuery({ 
@@ -36,6 +37,16 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 		queryKey: ["mutualConnections", userData?._id],
 		queryFn: () => axiosInstance.get(`/connections/mutual/${userData?._id}`),
 		enabled: !isOwnProfile && !!userData?._id,
+	});
+
+	// Fetch user's projects
+	const { data: userProjects, isLoading: isLoadingProjects } = useQuery({
+		queryKey: ["userProjects", userData?._id],
+		queryFn: async () => {
+			const response = await axiosInstance.get(`/projects/user/${userData?._id}`);
+			return response.data;
+		},
+		enabled: !!userData?._id,
 	});
 
 	// If userData is undefined or incomplete, don't try to render the component
@@ -1026,7 +1037,7 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 					</div>
 				)}
 				
-				{/* Activity section - showing user's posts */}
+				{/* Activity section - showing user's posts and projects */}
 				<div className="mb-6">
 					<div className="flex justify-between items-center mb-3">
 						<h2 className="text-lg font-semibold text-gray-800">Activity</h2>
@@ -1039,15 +1050,134 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 							</Link>
 						)}
 					</div>
-					<div className="space-y-4">
-						{userData._id ? (
-							<PostsList userId={userData._id} limit={3} />
-						) : (
-							<div className="bg-gray-50 p-6 rounded-md text-center">
-								<p className="text-gray-500">No activity to show yet.</p>
-							</div>
-						)}
+
+					{/* Activity tabs */}
+					<div className="flex border-b mb-4">
+						<button
+							className={`px-4 py-2 text-sm font-medium ${
+								activeActivityTab === "posts"
+									? "text-primary border-b-2 border-primary"
+									: "text-gray-600"
+							}`}
+							onClick={() => setActiveActivityTab("posts")}
+						>
+							Posts
+						</button>
+						<button
+							className={`px-4 py-2 text-sm font-medium ${
+								activeActivityTab === "projects"
+									? "text-primary border-b-2 border-primary"
+									: "text-gray-600"
+							}`}
+							onClick={() => setActiveActivityTab("projects")}
+						>
+							Projects
+						</button>
 					</div>
+
+					{activeActivityTab === "posts" && (
+						<div className="space-y-4">
+							{userData._id ? (
+								<PostsList userId={userData._id} limit={3} />
+							) : (
+								<div className="bg-gray-50 p-6 rounded-md text-center">
+									<p className="text-gray-500">No posts to show yet.</p>
+								</div>
+							)}
+						</div>
+					)}
+
+					{activeActivityTab === "projects" && (
+						<div className="space-y-4">
+							{isLoadingProjects ? (
+								<div className="flex justify-center items-center py-8">
+									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+								</div>
+							) : userProjects?.projects && userProjects.projects.length > 0 ? (
+								<div className="grid gap-4">
+									{userProjects.projects.slice(0, 3).map((project) => (
+										<Link 
+											to={`/projects/${project._id}`} 
+											key={project._id}
+											className="block p-4 border rounded-lg hover:border-primary transition-colors"
+										>
+											<div className="flex items-start gap-3">
+												<div className="flex-shrink-0 bg-gray-100 rounded-md p-2">
+													{project.poster ? (
+														<img 
+															src={project.poster} 
+															alt={project.name} 
+															className="w-12 h-12 object-cover rounded" 
+														/>
+													) : (
+														<Layout className="w-12 h-12 text-gray-400" />
+													)}
+												</div>
+												<div className="flex-1 min-w-0">
+													<h3 className="text-md font-medium text-gray-900 truncate">{project.name}</h3>
+													<p className="text-sm text-gray-500 mb-1">{project.category}</p>
+													<div className="flex items-center text-xs text-gray-500">
+														<span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 mr-2">
+															{project.stage === "idea" ? "Idea Stage" : 
+																project.stage === "buildingMVP" ? "Building MVP" :
+																project.stage === "MVP" ? "MVP Completed" :
+																project.stage === "prototype" ? "Prototype" :
+																project.stage === "fundraising" ? "Fundraising" :
+																project.stage === "growth" ? "Growth" :
+																project.stage === "exit" ? "Exit" : project.stage}
+														</span>
+														<span className="inline-flex items-center">
+															<Layers size={14} className="mr-1" />
+															{project.teamMembers?.length || 1} team members
+														</span>
+													</div>
+													<div className="mt-2 text-xs">
+														<span className={`inline-flex items-center px-2 py-0.5 rounded-full ${
+															project.founder._id === userData._id 
+																? "bg-purple-50 text-purple-800" 
+																: "bg-green-50 text-green-800"
+														}`}>
+															{project.founder._id === userData._id 
+																? "Founder" 
+																: `Team Member: ${
+																		project.teamMembers.find(
+																			member => member.userId._id === userData._id
+																		)?.role || "Contributor"
+																	}`
+															}
+														</span>
+													</div>
+												</div>
+											</div>
+										</Link>
+									))}
+									
+									{userProjects.projects.length > 3 && (
+										<div className="text-center">
+											<Link 
+												to={`/profile/${userData.username}/projects`}
+												className="text-sm text-primary font-medium hover:underline"
+											>
+												See all {userProjects.projects.length} projects
+											</Link>
+										</div>
+									)}
+								</div>
+							) : (
+								<div className="bg-gray-50 p-6 rounded-md text-center">
+									<p className="text-gray-500">No projects to show yet.</p>
+									{isOwnProfile && (
+										<Link 
+											to="/projects/create" 
+											className="mt-2 inline-block text-primary font-medium hover:underline"
+										>
+											Create a new project
+										</Link>
+									)}
+								</div>
+							)}
+						</div>
+					)}
 				</div>
 			</div>
 
