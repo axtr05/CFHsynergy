@@ -20,55 +20,295 @@ const ProjectCard = ({ project }) => {
     return stageMap[stageValue] || stageValue;
   };
 
-  return (
-    <Link to={`/projects/${project._id}`} className="block">
-      <div className="bg-white rounded-lg overflow-hidden shadow-md transition-all hover:shadow-lg">
-        {project.poster ? (
-          <img 
-            src={project.poster} 
-            alt={project.name} 
-            className="w-full h-40 object-cover"
-          />
-        ) : (
-          <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
-            <span className="text-gray-400">No image</span>
-          </div>
-        )}
-        
-        <div className="p-4">
-          <div className="flex items-start justify-between">
-            <h3 className="font-bold text-lg mb-1">{project.name}</h3>
-            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-              {project.category}
-            </span>
-          </div>
-          
-          <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-            {project.description}
-          </p>
-          
-          <div className="flex items-center text-xs text-gray-500 mb-3">
-            <div className="flex items-center mr-4">
-              <span>Team: {project.teamMembers?.length || 1}/{project.teamSize}</span>
-            </div>
-            <div className="flex items-center">
-              <span className="bg-gray-100 px-2 py-1 rounded text-gray-700">
-                {getStageLabel(project.stage)}
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex items-center">
+  const [showRoles, setShowRoles] = useState(false);
+  const [activeTab, setActiveTab] = useState(null);
+
+  // Function to get team members display
+  const renderTeamMembers = () => {
+    if (!project.teamMembers || project.teamMembers.length === 0) {
+      return (
+        <div className="text-center py-3">
+          <p className="text-gray-500 text-sm">Only founder at the moment</p>
+          <div className="flex items-center justify-center mt-2">
             <img 
               src={project.founder?.profilePicture || "/avatar.png"} 
               alt={project.founder?.name} 
-              className="w-6 h-6 rounded-full mr-2"
+              className="w-8 h-8 rounded-full mr-2"
             />
             <span className="text-sm font-medium">{project.founder?.name}</span>
           </div>
         </div>
+      );
+    }
+
+    return (
+      <div className="py-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">Founder:</span>
+          <div className="flex items-center">
+            <img 
+              src={project.founder?.profilePicture || "/avatar.png"} 
+              alt={project.founder?.name} 
+              className="w-6 h-6 rounded-full mr-1"
+            />
+            <span className="text-sm">{project.founder?.name}</span>
+          </div>
+        </div>
+        
+        {project.teamMembers.map((member, index) => (
+          <div key={index} className="flex items-center justify-between py-1 border-t border-gray-100">
+            <span className="text-sm text-gray-600">{member.role || "Team Member"}</span>
+            <div className="flex items-center">
+              <img 
+                src={member.userId?.profilePicture || "/avatar.png"} 
+                alt={member.userId?.name} 
+                className="w-6 h-6 rounded-full mr-1"
+              />
+              <span className="text-sm">{member.userId?.name}</span>
+            </div>
+          </div>
+        ))}
       </div>
-    </Link>
+    );
+  };
+
+  // Function to render project details
+  const renderDetails = () => {
+    return (
+      <div className="py-2">
+        <p className="text-gray-600 text-sm mb-3">
+          {project.description}
+        </p>
+        
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="font-medium">Category:</span> {project.category}
+          </div>
+          <div>
+            <span className="font-medium">Stage:</span> {getStageLabel(project.stage)}
+          </div>
+          <div>
+            <span className="font-medium">Team Size:</span> {project.teamSize}
+          </div>
+          <div>
+            <span className="font-medium">Created:</span> {new Date(project.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+        
+        {project.website && (
+          <div className="mt-3">
+            <a 
+              href={project.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline text-sm flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="mr-1">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Visit Project Website
+            </a>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Function to render comments
+  const renderComments = () => {
+    if (!project.comments || project.comments.length === 0) {
+      return (
+        <div className="text-center py-3">
+          <p className="text-gray-500 text-sm">No comments yet</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="py-2">
+        {project.comments.slice(0, 3).map((comment, index) => (
+          <div key={index} className="mb-2 pb-2 border-b border-gray-100 last:border-b-0">
+            <div className="flex items-center mb-1">
+              <img 
+                src={comment.user?.profilePicture || "/avatar.png"} 
+                alt={comment.user?.name} 
+                className="w-5 h-5 rounded-full mr-1"
+              />
+              <span className="text-xs font-medium">{comment.user?.name}</span>
+              <span className="text-xs text-gray-500 ml-auto">{new Date(comment.createdAt).toLocaleDateString()}</span>
+            </div>
+            <p className="text-sm text-gray-600">{comment.text}</p>
+          </div>
+        ))}
+        
+        {project.comments.length > 3 && (
+          <div className="text-center mt-1">
+            <Link to={`/projects/${project._id}`} className="text-blue-500 hover:underline text-xs">
+              View all {project.comments.length} comments
+            </Link>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="block">
+      <div className="bg-white rounded-t-lg overflow-hidden shadow-md transition-all hover:shadow-lg">
+        {/* Stage Banner */}
+        <div className="bg-blue-600 text-white py-1 px-4 font-medium text-sm">
+          {getStageLabel(project.stage)}
+        </div>
+        
+        <div className="p-4">
+          {project.poster ? (
+            <img 
+              src={project.poster} 
+              alt={project.name} 
+              className="w-full h-40 object-cover"
+            />
+          ) : (
+            <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
+              <span className="text-gray-400">No image</span>
+            </div>
+          )}
+          
+          <div className="mt-3">
+            <div className="flex items-start justify-between">
+              <h3 className="font-bold text-lg mb-1">{project.name}</h3>
+              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                {project.category}
+              </span>
+            </div>
+            
+            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+              {project.description}
+            </p>
+            
+            <div className="flex items-center text-xs text-gray-500 mb-3">
+              <div className="flex items-center mr-4">
+                <span>Team: {project.teamMembers?.length || 1}/{project.teamSize}</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center">
+              <img 
+                src={project.founder?.profilePicture || "/avatar.png"} 
+                alt={project.founder?.name} 
+                className="w-6 h-6 rounded-full mr-2"
+              />
+              <span className="text-sm font-medium">{project.founder?.name}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Expandable Roles */}
+      <div className="bg-white border-t border-gray-200">
+        <button 
+          onClick={() => {
+            setShowRoles(!showRoles);
+            setActiveTab(null);
+          }}
+          className="w-full text-left py-2 px-4 flex items-center justify-between"
+        >
+          <span className="text-sm font-medium text-gray-600">
+            {showRoles ? "Hide Roles" : "Show Available Roles"}
+          </span>
+          <span className="text-gray-500">
+            {showRoles ? "▲" : "▼"}
+          </span>
+        </button>
+        
+        {showRoles && (
+          <div className="border-t border-gray-200">
+            {/* Roles Section */}
+            {activeTab === null && (
+              <div className="p-4">
+                {project.openRoles && project.openRoles.length > 0 ? (
+                  project.openRoles.map((role, index) => (
+                    <div key={index} className="mb-2 last:mb-0">
+                      <Link 
+                        to={`/projects/${project._id}`} 
+                        className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded"
+                      >
+                        <div className="bg-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-white text-sm">
+                          +
+                        </div>
+                        <span className="text-gray-700">Apply for {role.title} role</span>
+                      </Link>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 italic text-sm text-center py-2">No open roles at the moment</p>
+                )}
+              </div>
+            )}
+            
+            {/* Team Members Tab Content */}
+            {activeTab === 'team' && (
+              <div className="p-4">
+                {renderTeamMembers()}
+              </div>
+            )}
+            
+            {/* Details Tab Content */}
+            {activeTab === 'details' && (
+              <div className="p-4">
+                {renderDetails()}
+              </div>
+            )}
+            
+            {/* Comments Tab Content */}
+            {activeTab === 'comments' && (
+              <div className="p-4">
+                {renderComments()}
+              </div>
+            )}
+            
+            {/* Tab Navigation */}
+            <div className="grid grid-cols-3 gap-2 px-4 py-3 border-t border-gray-200">
+              <button 
+                onClick={() => setActiveTab(activeTab === 'team' ? null : 'team')}
+                className={`text-center py-1.5 text-xs rounded ${
+                  activeTab === 'team' 
+                    ? 'bg-gray-200 text-gray-800 font-medium' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                TEAM MEMBERS
+              </button>
+              <button
+                onClick={() => setActiveTab(activeTab === 'details' ? null : 'details')}
+                className={`text-center py-1.5 text-xs rounded ${
+                  activeTab === 'details' 
+                    ? 'bg-gray-200 text-gray-800 font-medium' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                DETAILS
+              </button>
+              <button
+                onClick={() => setActiveTab(activeTab === 'comments' ? null : 'comments')}
+                className={`text-center py-1.5 text-xs rounded ${
+                  activeTab === 'comments' 
+                    ? 'bg-gray-200 text-gray-800 font-medium' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                COMMENTS ({project.commentCount || 0})
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {!showRoles && (
+          <Link to={`/projects/${project._id}`} className="block bg-gray-50 text-center py-2 rounded-b-lg border-t border-gray-200">
+            <span className="text-gray-600 text-sm">View Details</span>
+          </Link>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -292,7 +532,7 @@ const ProjectsPage = () => {
         <>
           {/* Projects Grid */}
           {data?.projects?.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {data.projects.map((project) => (
                 <ProjectCard key={project._id} project={project} />
               ))}
