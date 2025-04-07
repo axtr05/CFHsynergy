@@ -390,19 +390,44 @@ export const applyForRole = async (req, res) => {
     }
     
     // Check if the role exists in openRoles
-    const roleExists = project.openRoles.some(role => role.title === roleTitle);
+    const role = project.openRoles.find(role => role.title === roleTitle);
     
-    if (!roleExists) {
+    if (!role) {
       return res.status(400).json({ message: "The specified role does not exist" });
     }
     
-    // Check if user has already applied for a role in this project
-    const alreadyApplied = project.applications.some(
-      app => app.userId.toString() === userId.toString()
+    // Check if the role is already filled
+    if (role.filled >= role.limit) {
+      return res.status(400).json({ message: "This role has already been filled" });
+    }
+    
+    // Check if user has already applied for this specific role in this project
+    const existingApplication = project.applications.find(
+      app => app.userId.toString() === userId.toString() && app.roleTitle === roleTitle
     );
     
-    if (alreadyApplied) {
-      return res.status(400).json({ message: "You have already applied for a role in this project" });
+    if (existingApplication) {
+      if (existingApplication.status === "rejected") {
+        return res.status(403).json({ message: "Your previous application for this role was rejected. You cannot apply again for this role." });
+      } else if (existingApplication.status === "pending") {
+        return res.status(400).json({ message: "You have already applied for this role" });
+      } else if (existingApplication.status === "cancelled") {
+        // Allow re-application if previous application was cancelled
+        existingApplication.status = "pending";
+        existingApplication.message = message || "";
+        existingApplication.appliedDate = new Date();
+        
+        await project.save();
+        
+        return res.status(200).json({
+          message: "Application resubmitted successfully",
+          application: {
+            roleTitle,
+            status: "pending",
+            appliedDate: new Date()
+          }
+        });
+      }
     }
     
     // Check if user is already in a team
@@ -506,6 +531,7 @@ export const processApplication = async (req, res) => {
       const user = await User.findById(application.userId);
       
       if (user) {
+        // Update the user's status
         user.currentStartup = {
           startupId: project._id,
           role: application.roleTitle,
@@ -513,6 +539,85 @@ export const processApplication = async (req, res) => {
         };
         
         await user.save();
+        
+        // Cancel pending applications in all projects
+        const userProjects = await Project.find({
+          'applications.userId': application.userId,
+          'applications.status': 'pending'
+        });
+        
+        // Update status of all pending applications to "cancelled"
+        for (const userProject of userProjects) {
+          // For the current project, cancel pending applications for other roles
+          if (userProject._id.toString() === projectId) {
+            userProject.applications.forEach(app => {
+              if (app.userId.toString() === application.userId.toString() && 
+                  app.status === 'pending' && 
+                  app._id.toString() !== applicationId) {
+                app.status = 'cancelled';
+                
+                // Send notification about cancelled application
+                try {
+                  const notification = new Notification({
+                    recipient: app.userId,
+                    type: 'application_cancelled',
+                    content: `Your application for the ${app.roleTitle} role in "${userProject.name}" was cancelled because you were accepted for another role.`,
+                    project: userProject._id
+                  });
+                  notification.save();
+                } catch (err) {
+                  console.error("Error creating notification:", err);
+                }
+              }
+            });
+          } else {
+            // For other projects, cancel all pending applications  
+            userProject.applications.forEach(app => {
+              if (app.userId.toString() === application.userId.toString() && app.status === 'pending') {
+                app.status = 'cancelled';
+                
+                // Send notification about cancelled application
+                try {
+                  const notification = new Notification({
+                    recipient: app.userId,
+                    type: 'application_cancelled',
+                    content: `Your application for the ${app.roleTitle} role in "${userProject.name}" was cancelled because you were accepted for another role.`,
+                    project: userProject._id
+                  });
+                  notification.save();
+                } catch (err) {
+                  console.error("Error creating notification:", err);
+                }
+              }
+            });
+          }
+          await userProject.save();
+        }
+      }
+      
+      // If the role is now filled, reject all other pending applications for this role
+      if (role.filled >= role.limit) {
+        // Reject all other pending applications for this role
+        project.applications.forEach(app => {
+          if (app.roleTitle === application.roleTitle && 
+              app.status === 'pending' && 
+              app._id.toString() !== applicationId) {
+            app.status = 'rejected';
+            
+            // Send notification to the rejected user
+            try {
+              const notification = new Notification({
+                recipient: app.userId,
+                type: 'application_rejected_auto',
+                content: `Your application for the ${app.roleTitle} role in "${project.name}" was automatically rejected because the position has been filled.`,
+                project: project._id
+              });
+              notification.save();
+            } catch (err) {
+              console.error("Error creating notification:", err);
+            }
+          }
+        });
       }
     }
     
@@ -520,6 +625,33 @@ export const processApplication = async (req, res) => {
     project.applications[applicationIndex].status = status;
     
     await project.save();
+
+    // If application is accepted, create notification
+    if (status === 'accepted') {
+      try {
+        const notification = new Notification({
+          recipient: application.userId,
+          type: 'application_accepted',
+          content: `Your application for the ${application.roleTitle} role in "${project.name}" has been accepted!`,
+          project: project._id
+        });
+        await notification.save();
+      } catch (err) {
+        console.error("Error creating notification:", err);
+      }
+    } else if (status === 'rejected') {
+      try {
+        const notification = new Notification({
+          recipient: application.userId,
+          type: 'application_rejected',
+          content: `Your application for the ${application.roleTitle} role in "${project.name}" has been rejected.`,
+          project: project._id
+        });
+        await notification.save();
+      } catch (err) {
+        console.error("Error creating notification:", err);
+      }
+    }
     
     res.status(200).json({
       message: `Application ${status}`,

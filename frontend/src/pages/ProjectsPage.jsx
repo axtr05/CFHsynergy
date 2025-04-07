@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { axiosInstance } from "../lib/axios";
-import { Loader, Filter, Search, Plus } from "lucide-react";
+import { Loader, Filter, Search, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import { useAuthUser } from "../utils/authHooks";
+import { toast } from "react-hot-toast";
 
 const ProjectCard = ({ project }) => {
   // Get user-friendly stage label
@@ -20,8 +21,103 @@ const ProjectCard = ({ project }) => {
     return stageMap[stageValue] || stageValue;
   };
 
+  const navigate = useNavigate();
   const [showRoles, setShowRoles] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
+  const [showTeamMembers, setShowTeamMembers] = useState(false);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [applicationMessage, setApplicationMessage] = useState("");
+  const { data: user } = useAuthUser();
+
+  // Handle card click to navigate to project detail page
+  const handleCardClick = (e) => {
+    // Don't navigate if clicking on buttons or within expandable sections
+    if (
+      e.target.closest('button') || 
+      showRoles || 
+      showApplicationModal || 
+      e.target.closest('.modal') ||
+      e.target.closest('.dropdown') ||
+      e.target.closest('a')
+    ) {
+      return;
+    }
+    
+    navigate(`/projects/${project._id}`);
+  };
+
+  // Mutation for submitting application
+  const { mutate: submitApplication, isLoading: isSubmitting } = useMutation({
+    mutationFn: async (data) => {
+      const response = await axiosInstance.post(`/projects/${project._id}/apply`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Application submitted successfully!");
+      setShowApplicationModal(false);
+      setApplicationMessage("");
+      setSelectedRole(null);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Failed to submit application");
+    }
+  });
+
+  const handleRoleClick = (role) => {
+    if (!user) {
+      toast.error("Please login to apply for roles");
+      return;
+    }
+
+    if (user.userRole !== "jobseeker") {
+      toast.error("Only job seekers can apply for roles");
+      return;
+    }
+
+    if (project.founder._id === user._id) {
+      toast.error("You cannot apply to your own project");
+      return;
+    }
+
+    if (project.teamMembers.some(member => member.userId._id === user._id)) {
+      toast.error("You are already a member of this project");
+      return;
+    }
+
+    // Check if user has already applied for this specific role
+    const existingApplication = project.applications?.find(
+      app => app.userId._id === user._id && app.roleTitle === role.title
+    );
+
+    if (existingApplication && existingApplication.status === "rejected") {
+      toast.error("Your previous application for this role was rejected");
+      return;
+    }
+
+    if (existingApplication && existingApplication.status === "pending") {
+      toast.error("You already have a pending application for this role");
+      return;
+    }
+
+    // Check if position is filled
+    if (role.filled >= role.limit) {
+      toast.error("This position has already been filled");
+      return;
+    }
+
+    setSelectedRole(role);
+    setShowApplicationModal(true);
+  };
+
+  const handleSubmitApplication = () => {
+    if (!selectedRole) return;
+    
+    submitApplication({
+      roleTitle: selectedRole.title,
+      message: applicationMessage
+    });
+  };
 
   // Function to get team members display
   const renderTeamMembers = () => {
@@ -153,60 +249,58 @@ const ProjectCard = ({ project }) => {
   };
 
   return (
-    <div className="block">
-      <div className="bg-white rounded-t-lg overflow-hidden shadow-md transition-all hover:shadow-lg">
-        {/* Stage Banner */}
-        <div className="bg-blue-600 text-white py-1 px-4 font-medium text-sm">
-          {getStageLabel(project.stage)}
-        </div>
+    <div className="block cursor-pointer" onClick={handleCardClick}>
+      <div className="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        {project.poster ? (
+          <img
+            src={project.poster}
+            alt={project.name}
+            className="w-full h-48 object-cover"
+          />
+        ) : (
+          <div className="w-full h-48 bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+            <h3 className="text-white text-xl font-semibold">{project.name}</h3>
+          </div>
+        )}
         
         <div className="p-4">
-          {project.poster ? (
-            <img 
-              src={project.poster} 
-              alt={project.name} 
-              className="w-full h-40 object-cover"
-            />
-          ) : (
-            <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
-              <span className="text-gray-400">No image</span>
-            </div>
-          )}
-          
-          <div className="mt-3">
-            <div className="flex items-start justify-between">
-              <h3 className="font-bold text-lg mb-1">{project.name}</h3>
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                {project.category}
-              </span>
-            </div>
-            
-            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-              {project.description}
-            </p>
-            
-            <div className="flex items-center text-xs text-gray-500 mb-3">
-              <div className="flex items-center mr-4">
-                <span>Team: {project.teamMembers?.length || 1}/{project.teamSize}</span>
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-xl font-bold mb-1">{project.name}</h3>
+              <div className="flex items-center mb-1">
+                <img 
+                  src={project.founder?.profilePicture || "/avatar.png"} 
+                  alt={project.founder?.name} 
+                  className="w-5 h-5 rounded-full mr-1"
+                />
+                <span className="text-sm text-gray-600">{project.founder?.name}</span>
               </div>
             </div>
-            
-            <div className="flex items-center">
-              <img 
-                src={project.founder?.profilePicture || "/avatar.png"} 
-                alt={project.founder?.name} 
-                className="w-6 h-6 rounded-full mr-2"
-              />
-              <span className="text-sm font-medium">{project.founder?.name}</span>
-            </div>
+            <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">
+              {getStageLabel(project.stage)}
+            </span>
+          </div>
+          
+          <p className="text-gray-600 text-sm mt-2 line-clamp-2">
+            {project.description}
+          </p>
+          
+          <div className="mt-3 flex flex-wrap gap-1">
+            <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
+              {project.category}
+            </span>
+            <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
+              Team: {project.teamMembers?.length || 1}/{project.teamSize}
+            </span>
           </div>
         </div>
       </div>
       
-      {/* Expandable Roles */}
-      <div className="bg-white border-t border-gray-200">
+      {/* Expandable Roles - using stopPropagation to prevent card click */}
+      <div className="bg-white border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
         <button 
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             setShowRoles(!showRoles);
             setActiveTab(null);
           }}
@@ -226,19 +320,82 @@ const ProjectCard = ({ project }) => {
             {activeTab === null && (
               <div className="p-4">
                 {project.openRoles && project.openRoles.length > 0 ? (
-                  project.openRoles.map((role, index) => (
-                    <div key={index} className="mb-2 last:mb-0">
-                      <Link 
-                        to={`/projects/${project._id}`} 
-                        className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded"
-                      >
-                        <div className="bg-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-white text-sm">
-                          +
+                  project.openRoles.map((role, index) => {
+                    // Check for role-specific application status
+                    const userApplication = user && project.applications?.find(
+                      app => app.userId._id === user._id && app.roleTitle === role.title
+                    );
+                    
+                    const isFilled = role.filled >= role.limit;
+                    const isRejected = userApplication && userApplication.status === "rejected";
+                    const isPending = userApplication && userApplication.status === "pending";
+                    const isAccepted = userApplication && userApplication.status === "accepted";
+                    const isCancelled = userApplication && userApplication.status === "cancelled";
+                    
+                    // Set button text and style based on status
+                    let buttonText = "Apply for this role";
+                    let buttonClass = "text-gray-700";
+                    let iconClass = "bg-purple-600";
+                    let disabled = false;
+                    
+                    if (isFilled) {
+                      buttonText = "Position filled";
+                      buttonClass = "text-gray-400";
+                      iconClass = "bg-gray-400";
+                      disabled = true;
+                    } else if (isRejected) {
+                      buttonText = "Application rejected";
+                      buttonClass = "text-gray-400";
+                      iconClass = "bg-red-400";
+                      disabled = true;
+                    } else if (isPending) {
+                      buttonText = "Application pending";
+                      buttonClass = "text-blue-600";
+                      iconClass = "bg-blue-600";
+                      disabled = true;
+                    } else if (isAccepted) {
+                      buttonText = "Application accepted";
+                      buttonClass = "text-green-600";
+                      iconClass = "bg-green-600";
+                      disabled = true;
+                    } else if (isCancelled) {
+                      buttonText = "Reapply for this role";
+                      buttonClass = "text-purple-600";
+                      iconClass = "bg-purple-600";
+                      disabled = false;
+                    }
+                    
+                    return (
+                      <div key={index} className="mb-2 last:mb-0">
+                        <div className="flex items-start gap-2 p-2 rounded">
+                          <div className="flex-grow">
+                            <div className="flex justify-between">
+                              <span className="font-medium">{role.title}</span>
+                              <span className="text-xs text-gray-500">
+                                {role.filled}/{role.limit} filled
+                              </span>
+                            </div>
+                            {role.description && (
+                              <p className="text-xs text-gray-500 mt-1">{role.description}</p>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-gray-700">Apply for {role.title} role</span>
-                      </Link>
-                    </div>
-                  ))
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRoleClick(role);
+                          }}
+                          disabled={disabled}
+                          className={`w-full flex items-center gap-2 hover:bg-gray-100 p-2 rounded ${disabled ? 'cursor-not-allowed opacity-70' : ''}`}
+                        >
+                          <div className={`${iconClass} rounded-full w-6 h-6 flex items-center justify-center text-white text-sm`}>
+                            {isPending ? '⏳' : isAccepted ? '✓' : isRejected ? '✗' : '+'}
+                          </div>
+                          <span className={buttonClass}>{buttonText}</span>
+                        </button>
+                      </div>
+                    );
+                  })
                 ) : (
                   <p className="text-gray-500 italic text-sm text-center py-2">No open roles at the moment</p>
                 )}
@@ -248,7 +405,49 @@ const ProjectCard = ({ project }) => {
             {/* Team Members Tab Content */}
             {activeTab === 'team' && (
               <div className="p-4">
-                {renderTeamMembers()}
+                {/* Team Members */}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-700">Team Members</h3>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowTeamMembers(!showTeamMembers);
+                      }}
+                      className="text-primary hover:text-primary-dark"
+                    >
+                      {showTeamMembers ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                  </div>
+                  {showTeamMembers && (
+                    <div className="mt-2 space-y-2">
+                      {project.teamMembers && project.teamMembers.length > 0 ? (
+                        project.teamMembers.map((member) => (
+                          <div key={member.userId._id} className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <img 
+                                src={member.userId.profilePicture || "/avatar.png"} 
+                                alt={member.userId.name} 
+                                className="w-6 h-6 rounded-full mr-2" 
+                              />
+                              <Link 
+                                to={`/profile/${member.userId.username}`}
+                                className="text-sm text-gray-600 hover:text-primary hover:underline"
+                              >
+                                {member.userId.name}
+                              </Link>
+                            </div>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              {member.role}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">No team members yet</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             
@@ -269,7 +468,10 @@ const ProjectCard = ({ project }) => {
             {/* Tab Navigation */}
             <div className="grid grid-cols-3 gap-2 px-4 py-3 border-t border-gray-200">
               <button 
-                onClick={() => setActiveTab(activeTab === 'team' ? null : 'team')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab(activeTab === 'team' ? null : 'team');
+                }}
                 className={`text-center py-1.5 text-xs rounded ${
                   activeTab === 'team' 
                     ? 'bg-gray-200 text-gray-800 font-medium' 
@@ -279,7 +481,10 @@ const ProjectCard = ({ project }) => {
                 TEAM MEMBERS
               </button>
               <button
-                onClick={() => setActiveTab(activeTab === 'details' ? null : 'details')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab(activeTab === 'details' ? null : 'details');
+                }}
                 className={`text-center py-1.5 text-xs rounded ${
                   activeTab === 'details' 
                     ? 'bg-gray-200 text-gray-800 font-medium' 
@@ -289,7 +494,10 @@ const ProjectCard = ({ project }) => {
                 DETAILS
               </button>
               <button
-                onClick={() => setActiveTab(activeTab === 'comments' ? null : 'comments')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab(activeTab === 'comments' ? null : 'comments');
+                }}
                 className={`text-center py-1.5 text-xs rounded ${
                   activeTab === 'comments' 
                     ? 'bg-gray-200 text-gray-800 font-medium' 
@@ -308,6 +516,57 @@ const ProjectCard = ({ project }) => {
           </Link>
         )}
       </div>
+
+      {/* Application Modal - also needs stopPropagation */}
+      {showApplicationModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Apply for {selectedRole?.title}</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Why do you want to join this project?
+              </label>
+              <textarea
+                value={applicationMessage}
+                onChange={(e) => setApplicationMessage(e.target.value)}
+                className="w-full p-2 border rounded-md"
+                rows="4"
+                placeholder="Tell us about your interest and relevant experience..."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowApplicationModal(false);
+                  setApplicationMessage("");
+                  setSelectedRole(null);
+                }}
+                className="btn btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSubmitApplication();
+                }}
+                disabled={isSubmitting}
+                className="btn btn-primary"
+              >
+                {isSubmitting ? (
+                  <Loader size={16} className="animate-spin" />
+                ) : (
+                  "Submit Application"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

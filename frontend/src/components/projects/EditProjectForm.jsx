@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../../lib/axios";
 import { toast } from "react-hot-toast";
 import { Loader, Plus, Trash2, Upload } from "lucide-react";
@@ -23,54 +23,34 @@ const EditProjectForm = ({ projectId, onSuccess }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Fetch project data
-  const { data: projectData, isLoading: isLoadingProject } = useQuery({
-    queryKey: ["project", projectId],
-    queryFn: async () => {
-      const response = await axiosInstance.get(`/projects/${projectId}`);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      console.log("Project data loaded:", data.project.name);
-    },
-    onError: (error) => {
-      console.error("Error loading project:", error);
-      toast.error("Failed to load project data");
-      navigate("/projects");
-    },
-  });
-
-  // Set form data when project data is available
+  // Get project data from cache that was already fetched by parent component
+  const cachedProjectData = queryClient.getQueryData(["project", projectId, "checkOwner"]);
+  
+  // Set form data from the cached project data
   useEffect(() => {
-    if (projectData && projectData.project) {
-      const project = projectData.project;
+    if (cachedProjectData?.project) {
+      const project = cachedProjectData.project;
       
-      // Using setTimeout to ensure this runs after state updates
-      setTimeout(() => {
-        setFormData({
-          name: project.name || "",
-          description: project.description || "",
-          category: project.category || "",
-          teamSize: project.teamSize || 1,
-          website: project.website || "",
-          stage: project.stage || "idea",
-          poster: project.poster || "",
-          openRoles: project.openRoles || [],
-        });
-        
-        if (project.poster) {
-          setPosterPreview(project.poster);
-        }
-        
-        setIsDataLoaded(true);
-        
-        console.log("Form data set successfully:", {
-          name: project.name,
-          description: project.description?.substring(0, 30) + "...",
-        });
-      }, 0);
+      console.log("Setting form data from cached project:", project.name);
+      
+      setFormData({
+        name: project.name || "",
+        description: project.description || "",
+        category: project.category || "",
+        teamSize: project.teamSize || 1,
+        website: project.website || "",
+        stage: project.stage || "idea",
+        poster: project.poster || "",
+        openRoles: project.openRoles || [],
+      });
+      
+      if (project.poster) {
+        setPosterPreview(project.poster);
+      }
+      
+      setIsDataLoaded(true);
     }
-  }, [projectData]);
+  }, [cachedProjectData, projectId]);
 
   const { mutate: updateProject, isLoading } = useMutation({
     mutationFn: async (data) => {
@@ -86,7 +66,7 @@ const EditProjectForm = ({ projectId, onSuccess }) => {
       });
 
       // If there's a new poster, upload it
-      if (data.poster && data.poster !== projectData?.project.poster) {
+      if (data.poster && data.poster !== cachedProjectData?.project.poster) {
         await axiosInstance.post(`/projects/${projectId}/poster`, { 
           poster: data.poster 
         });
@@ -225,40 +205,40 @@ const EditProjectForm = ({ projectId, onSuccess }) => {
   ];
 
   // Show loading state while fetching data
-  if (isLoadingProject || (!isDataLoaded && projectData)) {
+  if (!isDataLoaded || !cachedProjectData?.project) {
     return (
       <div className="bg-white rounded-lg shadow p-8 flex flex-col items-center justify-center h-64">
         <Loader className="h-10 w-10 animate-spin text-primary mb-4" />
         <h3 className="text-lg font-medium text-gray-700">Loading project data...</h3>
-        <p className="text-gray-500 text-sm mt-2">Please wait while we fetch the existing project details</p>
+        <p className="text-gray-500 text-sm mt-2">Please wait while we prepare the form</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-3xl mx-auto">
-      {projectData && projectData.project && (
+      {cachedProjectData?.project && (
         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="font-medium text-blue-800">Editing Project: {projectData.project.name}</h3>
+              <h3 className="font-medium text-blue-800">Editing Project: {cachedProjectData.project.name}</h3>
               <p className="text-sm text-blue-600 mt-1">
-                Current stage: {stages.find(s => s.value === projectData.project.stage)?.label || projectData.project.stage}
+                Current stage: {stages.find(s => s.value === cachedProjectData.project.stage)?.label || cachedProjectData.project.stage}
               </p>
             </div>
-            {projectData.project.upvotes?.length > 0 && (
+            {cachedProjectData.project.upvotes?.length > 0 && (
               <div className="bg-white px-3 py-1 rounded-full text-sm text-blue-700 font-medium border border-blue-200">
-                {projectData.project.upvotes.length} upvotes
+                {cachedProjectData.project.upvotes.length} upvotes
               </div>
             )}
           </div>
           
           {/* Team members info */}
-          {projectData.project.teamMembers && projectData.project.teamMembers.length > 0 && (
+          {cachedProjectData.project.teamMembers && cachedProjectData.project.teamMembers.length > 0 && (
             <div className="mt-2">
               <p className="text-sm text-blue-700 font-medium mb-2">Current Team Members:</p>
               <div className="flex flex-wrap gap-2">
-                {projectData.project.teamMembers.map((member, i) => (
+                {cachedProjectData.project.teamMembers.map((member, i) => (
                   <div key={i} className="bg-white px-2 py-1 rounded border border-blue-200 text-xs flex items-center">
                     <img 
                       src={member.userId.profilePicture || "/avatar.png"} 
@@ -318,232 +298,174 @@ const EditProjectForm = ({ projectId, onSuccess }) => {
           </div>
 
           {/* Basic Info */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Project Name*
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="input input-bordered w-full"
-              placeholder="Enter project name"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Description*
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={4}
-              className="textarea textarea-bordered w-full"
-              placeholder="Describe your project idea, goals, and vision"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Category*
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="select select-bordered w-full"
-            >
-              <option value="">Select Category</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
             <div>
               <label className="block text-gray-700 font-medium mb-2">
-                Team Size
+                Project Name
               </label>
               <input
-                type="number"
-                name="teamSize"
-                value={formData.teamSize}
+                type="text"
+                name="name"
+                value={formData.name}
                 onChange={handleChange}
-                min={1}
-                max={100}
-                className="input input-bordered w-full"
+                className="w-full input input-bordered"
+                placeholder="Enter your project name"
               />
             </div>
 
             <div>
               <label className="block text-gray-700 font-medium mb-2">
-                Project Stage
+                Description
               </label>
-              <select
-                name="stage"
-                value={formData.stage}
+              <textarea
+                name="description"
+                value={formData.description}
                 onChange={handleChange}
-                className="select select-bordered w-full"
-              >
-                {stages.map((stage) => (
-                  <option key={stage.value} value={stage.value}>
-                    {stage.label}
-                  </option>
-                ))}
-              </select>
+                rows={5}
+                className="w-full textarea textarea-bordered"
+                placeholder="Describe your project, market opportunity, and goals"
+              />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Website URL
-            </label>
-            <input
-              type="url"
-              name="website"
-              value={formData.website}
-              onChange={handleChange}
-              className="input input-bordered w-full"
-              placeholder="https://yourproject.com"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">
+                  Category
+                </label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full select select-bordered"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">
+                  Project Stage
+                </label>
+                <select
+                  name="stage"
+                  value={formData.stage}
+                  onChange={handleChange}
+                  className="w-full select select-bordered"
+                >
+                  {stages.map((stage) => (
+                    <option key={stage.value} value={stage.value}>
+                      {stage.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">
+                  Team Size
+                </label>
+                <input
+                  type="number"
+                  name="teamSize"
+                  value={formData.teamSize}
+                  onChange={handleChange}
+                  min={1}
+                  max={20}
+                  className="w-full input input-bordered"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">
+                  Website (Optional)
+                </label>
+                <input
+                  type="url"
+                  name="website"
+                  value={formData.website}
+                  onChange={handleChange}
+                  className="w-full input input-bordered"
+                  placeholder="https://example.com"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Open Roles */}
           <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Open Roles
-            </label>
-            <div className="space-y-4 mb-4">
-              {formData.openRoles.map((role, index) => (
-                <div
-                  key={index}
-                  className="border rounded-lg p-4 flex flex-col md:flex-row gap-4 md:items-end"
-                >
-                  <div className="flex-grow">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="md:col-span-2">
-                        <label className="block text-gray-700 text-sm mb-1">
-                          Role Title
-                        </label>
-                        <input
-                          type="text"
-                          value={role.title}
-                          onChange={(e) => {
-                            const newRoles = [...formData.openRoles];
-                            newRoles[index].title = e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              openRoles: newRoles,
-                            }));
-                          }}
-                          className="input input-bordered w-full"
-                        />
-                      </div>
+            <h3 className="text-lg font-semibold mb-4">Open Roles</h3>
+            
+            {formData.openRoles.length > 0 && (
+              <div className="mb-6 space-y-4">
+                {formData.openRoles.map((role, index) => (
+                  <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <label className="block text-gray-700 text-sm mb-1">
-                          Positions
-                        </label>
-                        <div className="flex flex-col">
-                          <input
-                            type="number"
-                            value={role.limit}
-                            onChange={(e) => {
-                              const newRoles = [...formData.openRoles];
-                              newRoles[index].limit = parseInt(e.target.value) || 1;
-                              setFormData((prev) => ({
-                                ...prev,
-                                openRoles: newRoles,
-                              }));
-                            }}
-                            min={role.filled || 1}
-                            className="input input-bordered w-full"
-                          />
-                          {role.filled > 0 && (
-                            <span className="text-xs text-gray-500 mt-1">
-                              {role.filled} position{role.filled !== 1 ? 's' : ''} already filled
-                            </span>
-                          )}
-                        </div>
+                        <h4 className="font-medium">{role.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {role.description || "No description provided"}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Positions: {role.filled}/{role.limit}
+                        </p>
                       </div>
-                    </div>
-                    <div className="mt-2">
-                      <label className="block text-gray-700 text-sm mb-1">
-                        Description
-                      </label>
-                      <textarea
-                        value={role.description}
-                        onChange={(e) => {
-                          const newRoles = [...formData.openRoles];
-                          newRoles[index].description = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            openRoles: newRoles,
-                          }));
-                        }}
-                        rows={2}
-                        className="textarea textarea-bordered w-full"
-                        placeholder="Describe the responsibilities and requirements"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRole(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      className="btn btn-error btn-outline"
-                      onClick={() => handleRemoveRole(index)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
 
-              {/* Add New Role Form */}
-              <div className="border border-dashed rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-3">Add New Role</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2">
-                  <div className="md:col-span-2">
-                    <label className="block text-gray-700 text-sm mb-1">
-                      Role Title
-                    </label>
-                    <input
-                      type="text"
-                      value={newRole.title}
-                      onChange={(e) =>
-                        setNewRole((prev) => ({
-                          ...prev,
-                          title: e.target.value,
-                        }))
-                      }
-                      className="input input-bordered w-full"
-                      placeholder="e.g. Frontend Developer"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 text-sm mb-1">
-                      Positions
-                    </label>
-                    <input
-                      type="number"
-                      value={newRole.limit}
-                      onChange={(e) =>
-                        setNewRole((prev) => ({
-                          ...prev,
-                          limit: parseInt(e.target.value) || 1,
-                        }))
-                      }
-                      min={1}
-                      className="input input-bordered w-full"
-                    />
-                  </div>
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-medium mb-3">Add New Role</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="md:col-span-2">
+                  <label className="block text-gray-700 text-sm mb-1">
+                    Title
+                  </label>
+                  <input
+                    value={newRole.title}
+                    onChange={(e) =>
+                      setNewRole((prev) => ({
+                        ...prev,
+                        title: e.target.value,
+                      }))
+                    }
+                    className="input input-bordered w-full"
+                    placeholder="E.g., Frontend Developer"
+                  />
                 </div>
-                <div className="mb-2">
+                <div>
+                  <label className="block text-gray-700 text-sm mb-1">
+                    Positions
+                  </label>
+                  <input
+                    type="number"
+                    value={newRole.limit}
+                    min={1}
+                    onChange={(e) =>
+                      setNewRole((prev) => ({
+                        ...prev,
+                        limit: parseInt(e.target.value) || 1,
+                      }))
+                    }
+                    className="input input-bordered w-full"
+                  />
+                </div>
+                <div className="md:col-span-3">
                   <label className="block text-gray-700 text-sm mb-1">
                     Description
                   </label>
@@ -560,7 +482,7 @@ const EditProjectForm = ({ projectId, onSuccess }) => {
                     placeholder="Describe the responsibilities and requirements"
                   />
                 </div>
-                <div className="flex justify-end">
+                <div className="flex justify-end md:col-span-3">
                   <button
                     type="button"
                     className="btn btn-primary"

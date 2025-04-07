@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../lib/axios";
@@ -29,19 +29,27 @@ const ProjectDetailPage = () => {
   const [selectedRole, setSelectedRole] = useState(null);
   const [applicationMessage, setApplicationMessage] = useState("");
   const [showAllComments, setShowAllComments] = useState(false);
+  const [hasShownAcceptanceMessage, setHasShownAcceptanceMessage] = useState(false);
+  const [hasShownRejectionMessage, setHasShownRejectionMessage] = useState(false);
+  const [commentsPage, setCommentsPage] = useState(1);
+  const [teamMembersPage, setTeamMembersPage] = useState(1);
+  const COMMENTS_PER_PAGE = 5;
+  const TEAM_MEMBERS_PER_PAGE = 5;
+  const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data: project, isLoading, error, refetch } = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () => {
       const response = await axiosInstance.get(`/projects/${projectId}`);
-      return response.data;
+      return response.data.project;
     },
   });
 
   const { data: comments, isLoading: isLoadingComments } = useQuery({
-    queryKey: ["projectComments", projectId],
+    queryKey: ["projectComments", projectId, commentsPage],
     queryFn: async () => {
-      const response = await axiosInstance.get(`/projects/${projectId}/comments`);
+      const response = await axiosInstance.get(`/projects/${projectId}/comments?page=${commentsPage}&limit=${COMMENTS_PER_PAGE}`);
       return response.data;
     },
     enabled: activeTab === "comments",
@@ -90,6 +98,49 @@ const ProjectDetailPage = () => {
     },
   });
 
+  const { mutate: processApplication, isLoading: isProcessingApplication } = useMutation({
+    mutationFn: async ({ applicationId, status }) => {
+      return axiosInstance.put(`/projects/${projectId}/applications/${applicationId}`, { status });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries(["project", projectId]);
+      if (variables.status === "accepted") {
+        toast.success("Application accepted successfully!");
+      } else {
+        toast.success("Application rejected successfully!");
+      }
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Error processing application");
+    },
+  });
+
+  const { mutate: leaveProject, isLoading: isLeavingProject } = useMutation({
+    mutationFn: async () => {
+      return axiosInstance.post(`/projects/${projectId}/leave`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["project", projectId]);
+      toast.success("You have left the project successfully");
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Error leaving project");
+    },
+  });
+
+  const { mutate: removeTeamMember, isLoading: isRemovingMember } = useMutation({
+    mutationFn: async (memberId) => {
+      return axiosInstance.delete(`/projects/${projectId}/members/${memberId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["project", projectId]);
+      toast.success("Team member removed successfully");
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Error removing team member");
+    },
+  });
+
   const [commentText, setCommentText] = useState("");
 
   const handleSubmitComment = (e) => {
@@ -106,6 +157,38 @@ const ProjectDetailPage = () => {
       return;
     }
 
+    // Check all conditions that would prevent application
+    if (isFounder) {
+      toast.error("You cannot apply to your own project");
+      return;
+    }
+
+    if (isTeamMember) {
+      toast.error("You are already a member of this project");
+      return;
+    }
+
+    // Check if user has already applied for this specific role
+    const existingApplication = project.applications?.find(
+      app => app.userId._id === user._id && app.roleTitle === role.title
+    );
+
+    if (existingApplication && existingApplication.status === "rejected") {
+      toast.error("You cannot apply for this role as your previous application was rejected");
+      return;
+    }
+
+    if (existingApplication && existingApplication.status === "pending") {
+      toast.error("Your application for this role is still pending approval");
+      return;
+    }
+
+    // Check if position is filled
+    if (role.filled >= role.limit) {
+      toast.error("This position has already been filled");
+      return;
+    }
+
     setSelectedRole(role);
     setShowApplicationModal(true);
   };
@@ -118,6 +201,42 @@ const ProjectDetailPage = () => {
       message: applicationMessage
     });
   };
+
+  useEffect(() => {
+    if (user && project?.applications) {
+      const acceptedApplication = project.applications.find(
+        app => app.userId._id === user._id && app.status === "accepted"
+      );
+      
+      if (acceptedApplication && !hasShownAcceptanceMessage) {
+        toast.success("Your application has been accepted! You are now a member of this project.");
+        setHasShownAcceptanceMessage(true);
+      }
+    }
+  }, [user, project, hasShownAcceptanceMessage]);
+
+  useEffect(() => {
+    if (user && project?.applications) {
+      const rejectedApplication = project.applications.find(
+        app => app.userId._id === user._id && app.status === "rejected"
+      );
+      
+      if (rejectedApplication && !hasShownRejectionMessage) {
+        toast.error("Your application was not accepted. You cannot apply again for this project.");
+        setHasShownRejectionMessage(true);
+      }
+    }
+  }, [user, project, hasShownRejectionMessage]);
+
+  // Calculate paginated data
+  const paginatedComments = comments?.comments?.slice(0, COMMENTS_PER_PAGE) || [];
+  const paginatedTeamMembers = project?.teamMembers?.slice(
+    (teamMembersPage - 1) * TEAM_MEMBERS_PER_PAGE,
+    teamMembersPage * TEAM_MEMBERS_PER_PAGE
+  ) || [];
+
+  const totalCommentsPages = Math.ceil((comments?.totalComments || 0) / COMMENTS_PER_PAGE);
+  const totalTeamMembersPages = Math.ceil((project?.teamMembers?.length || 0) / TEAM_MEMBERS_PER_PAGE);
 
   if (isLoading) {
     return (
@@ -141,16 +260,70 @@ const ProjectDetailPage = () => {
     );
   }
 
-  const project = data.project;
-  const isFounder = user && project.founder._id === user._id;
-  const hasApplied = project.applications?.some(app => app.userId._id === user?._id);
-  const isTeamMember = project.teamMembers?.some(member => member.userId._id === user?._id);
-  const hasUpvoted = project.upvotes?.some(upvoteId => upvoteId === user?._id);
+  if (!project) {
+    return (
+      <div className="container mx-auto py-10 px-4">
+        <div className="text-center bg-yellow-50 p-10 rounded-lg">
+          <h2 className="text-2xl text-yellow-600 mb-4">Project Not Found</h2>
+          <p className="text-gray-700 mb-6">The project you're looking for doesn't exist or has been removed.</p>
+          <Link to="/projects" className="btn btn-primary">
+            Back to Projects
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isFounder = user && project?.founder?._id === user._id;
+  const hasApplied = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "pending");
+  const hasBeenRejectedForAny = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "rejected");
+  const hasBeenCancelledForAny = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "cancelled");
+  const isPendingApprovalForAny = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "pending");
+  const isTeamMember = project?.teamMembers?.some(member => member.userId?._id === user?._id);
+  const hasUpvoted = project?.upvotes?.some(upvoteId => upvoteId === user?._id);
   
   const projectCommentsToShow = showAllComments 
     ? comments?.comments 
     : comments?.comments?.slice(0, 3);
 
+  const getApplyButtonState = (role) => {
+    if (isFounder) return { text: "You're the founder", disabled: true, style: "btn-disabled" };
+    if (isTeamMember) return { text: "You're a member", disabled: true, style: "btn-disabled" };
+    
+    // Check for role-specific application status
+    const userApplication = user && project?.applications?.find(
+      app => app.userId._id === user._id && app.roleTitle === role.title
+    );
+    
+    if (userApplication) {
+      if (userApplication.status === "rejected") {
+        return { text: "Not Eligible", disabled: true, style: "btn-disabled bg-gray-200 border-gray-300 text-gray-500" };
+      }
+      if (userApplication.status === "pending") {
+        return { text: "Application Pending", disabled: true, style: "btn-secondary" };
+      }
+      if (userApplication.status === "cancelled") {
+        return { text: "Reapply", disabled: false, style: "btn-outline" };
+      }
+      if (userApplication.status === "accepted") {
+        return { text: "Accepted", disabled: true, style: "btn-success" };
+      }
+    }
+    
+    // Check if the role is filled
+    if (role.filled >= role.limit) {
+      return { text: "Position Filled", disabled: true, style: "btn-disabled" };
+    }
+    
+    return { 
+      text: <><Plus size={16} className="mr-1" />Apply</>, 
+      disabled: false, 
+      style: "btn-primary"
+    };
+  };
+
+  const buttonState = getApplyButtonState(selectedRole);
+  
   // Get stage label
   const getStageLabel = (stage) => {
     const stageMap = {
@@ -170,15 +343,15 @@ const ProjectDetailPage = () => {
       {/* Project header */}
       <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
         {project.poster ? (
-          <div className="aspect-w-16 aspect-h-9 w-full max-h-80 overflow-hidden">
+          <div className="relative w-full" style={{ height: "400px" }}>
             <img 
               src={project.poster} 
               alt={project.name} 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-gray-50"
             />
           </div>
         ) : (
-          <div className="aspect-w-16 aspect-h-9 w-full max-h-80 bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
+          <div className="w-full h-80 bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
             <h1 className="text-4xl font-bold">{project.name}</h1>
           </div>
         )}
@@ -188,14 +361,16 @@ const ProjectDetailPage = () => {
             <div>
               <h1 className="text-3xl font-bold mb-1">{project.name}</h1>
               <div className="flex items-center mb-4">
-                <Link to={`/profile/${project.founder.username}`} className="flex items-center mr-4">
-                  <img 
-                    src={project.founder.profilePicture || '/avatar.png'} 
-                    alt={project.founder.name}
-                    className="w-6 h-6 rounded-full mr-2"
-                  />
-                  <span className="text-gray-700 hover:underline font-medium">{project.founder.name}</span>
-                </Link>
+                {project?.founder?.username && (
+                  <Link to={`/profile/${project.founder.username}`} className="flex items-center mr-4">
+                    <img 
+                      src={project.founder.profilePicture || '/avatar.png'} 
+                      alt={project.founder.name}
+                      className="w-6 h-6 rounded-full mr-2"
+                    />
+                    <span className="text-gray-700 hover:underline font-medium">{project.founder.name}</span>
+                  </Link>
+                )}
                 <span className="text-gray-500 text-sm">{project.upvotes?.length || 0} upvotes</span>
               </div>
             </div>
@@ -331,57 +506,123 @@ const ProjectDetailPage = () => {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-bold mb-4">Team Members</h2>
               
-              {/* Founder */}
-              <div className="mb-8">
-                <h3 className="text-md font-semibold mb-4">Founder</h3>
-                <div className="flex items-center">
-                  <img 
-                    src={project.founder.profilePicture || "/avatar.png"} 
-                    alt={project.founder.name} 
-                    className="w-12 h-12 rounded-full mr-4" 
-                  />
-                  <div>
-                    <Link 
-                      to={`/profile/${project.founder.username}`}
-                      className="font-medium hover:underline"
-                    >
-                      {project.founder.name}
-                    </Link>
-                    <p className="text-sm text-gray-600">{project.founder.headline}</p>
+              {/* Team Members List */}
+              <div className="space-y-4">
+                {/* Founder - Always show first */}
+                {project?.founder && (
+                  <div className="flex items-center justify-between border-b pb-4">
+                    <div className="flex items-center">
+                      <img 
+                        src={project.founder?.profilePicture || "/avatar.png"} 
+                        alt={project.founder?.name || "Founder"} 
+                        className="w-8 h-8 rounded-full mr-3" 
+                      />
+                      <div>
+                        {project.founder?.username ? (
+                          <Link 
+                            to={`/profile/${project.founder.username}`}
+                            className="font-medium hover:text-primary hover:underline"
+                          >
+                            {project.founder.name || "Unknown Founder"}
+                          </Link>
+                        ) : (
+                          <span className="font-medium">
+                            {project.founder?.name || "Unknown Founder"}
+                          </span>
+                        )}
+                        <p className="text-xs text-gray-500">Project Founder</p>
+                      </div>
+                    </div>
+                    {/* Only show founder badge if the viewer is not the founder */}
+                    {!isFounder && (
+                      <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-medium">
+                        Founder
+                      </span>
+                    )}
                   </div>
-                </div>
-              </div>
-              
-              {/* Team members list */}
-              {project.teamMembers && project.teamMembers.length > 0 ? (
-                <>
-                  <h3 className="text-md font-semibold mb-4">Team Members</h3>
-                  <div className="space-y-4">
-                    {project.teamMembers.map((member) => (
-                      <div key={member.userId._id} className="flex items-center">
+                )}
+                
+                {/* Other team members (excluding founder) */}
+                {paginatedTeamMembers
+                  .filter(member => member.userId?._id !== project.founder?._id)
+                  .map((member, index) => (
+                    <div key={member.userId?._id || index} className="flex items-center justify-between border-b pb-4 last:border-0">
+                      <div className="flex items-center">
                         <img 
-                          src={member.userId.profilePicture || "/avatar.png"} 
-                          alt={member.userId.name} 
-                          className="w-12 h-12 rounded-full mr-4" 
+                          src={member.userId?.profilePicture || "/avatar.png"} 
+                          alt={member.userId?.name || "Team Member"} 
+                          className="w-8 h-8 rounded-full mr-3" 
                         />
                         <div>
-                          <Link 
-                            to={`/profile/${member.userId.username}`}
-                            className="font-medium hover:underline"
-                          >
-                            {member.userId.name}
-                          </Link>
-                          <p className="text-sm text-gray-600">{member.role}</p>
-                          <p className="text-xs text-gray-500">
-                            Joined {new Date(member.joinDate).toLocaleDateString()}
-                          </p>
+                          {member.userId?.username ? (
+                            <Link 
+                              to={`/profile/${member.userId.username}`}
+                              className="font-medium hover:text-primary hover:underline"
+                            >
+                              {member.userId.name || "Unknown Member"}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">
+                              {member.userId?.name || "Unknown Member"}
+                            </span>
+                          )}
+                          <p className="text-xs text-gray-500">Joined {new Date(member.joinDate).toLocaleDateString()}</p>
                         </div>
                       </div>
-                    ))}
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
+                          {member.role || "Team Member"}
+                        </span>
+                        
+                        {/* Remove button - Only visible to founder */}
+                        {isFounder && (
+                          <button
+                            onClick={() => {
+                              setMemberToRemove(member);
+                              setShowRemoveConfirmation(true);
+                            }}
+                            className="btn btn-error btn-sm"
+                            disabled={isRemovingMember}
+                          >
+                            {isRemovingMember ? (
+                              <Loader size={14} className="animate-spin" />
+                            ) : (
+                              "Remove"
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                
+                {project?.teamMembers?.length <= 1 && (
+                  <p className="text-gray-500 italic py-2">No team members yet besides the founder.</p>
+                )}
+              </div>
+
+              {/* Team Members Pagination */}
+              {totalTeamMembersPages > 1 && (
+                <div className="flex justify-center mt-4">
+                  <div className="join">
+                    <button
+                      className="join-item btn btn-sm"
+                      onClick={() => setTeamMembersPage(prev => Math.max(prev - 1, 1))}
+                      disabled={teamMembersPage === 1}
+                    >
+                      «
+                    </button>
+                    <button className="join-item btn btn-sm">
+                      Page {teamMembersPage}
+                    </button>
+                    <button
+                      className="join-item btn btn-sm"
+                      onClick={() => setTeamMembersPage(prev => Math.min(prev + 1, totalTeamMembersPages))}
+                      disabled={teamMembersPage === totalTeamMembersPages}
+                    >
+                      »
+                    </button>
                   </div>
-                </>
-              ) : (
-                <p className="text-gray-500 italic">No team members yet besides the founder.</p>
+                </div>
               )}
             </div>
           )}
@@ -429,66 +670,46 @@ const ProjectDetailPage = () => {
                 </form>
               )}
               
-              {/* Comments list */}
-              {isLoadingComments ? (
-                <div className="flex justify-center py-10">
-                  <Loader className="h-8 w-8 animate-spin text-primary" />
+              {/* Comments List */}
+              <div className="space-y-4">
+                {paginatedComments.map((comment) => (
+                  <div key={comment._id} className="border-b pb-4">
+                    <div className="flex items-center mb-2">
+                      <img 
+                        src={comment.user.profilePicture || "/avatar.png"} 
+                        alt={comment.user.name} 
+                        className="w-6 h-6 rounded-full mr-2" 
+                      />
+                      <span className="text-sm font-medium">{comment.user.name}</span>
+                    </div>
+                    <p className="text-gray-600 text-sm">{comment.text}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Comments Pagination */}
+              {totalCommentsPages > 1 && (
+                <div className="flex justify-center mt-4">
+                  <div className="join">
+                    <button
+                      className="join-item btn btn-sm"
+                      onClick={() => setCommentsPage(prev => Math.max(prev - 1, 1))}
+                      disabled={commentsPage === 1}
+                    >
+                      «
+                    </button>
+                    <button className="join-item btn btn-sm">
+                      Page {commentsPage}
+                    </button>
+                    <button
+                      className="join-item btn btn-sm"
+                      onClick={() => setCommentsPage(prev => Math.min(prev + 1, totalCommentsPages))}
+                      disabled={commentsPage === totalCommentsPages}
+                    >
+                      »
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <>
-                  {projectCommentsToShow?.length > 0 ? (
-                    <>
-                      <div className="space-y-6">
-                        {projectCommentsToShow.map((comment) => (
-                          <div key={comment._id} className="flex">
-                            <img 
-                              src={comment.user.profilePicture || "/avatar.png"} 
-                              alt={comment.user.name} 
-                              className="w-10 h-10 rounded-full mr-3" 
-                            />
-                            <div>
-                              <div className="flex items-center">
-                                <Link 
-                                  to={`/profile/${comment.user.username}`}
-                                  className="font-medium hover:underline mr-2"
-                                >
-                                  {comment.user.name}
-                                </Link>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(comment.createdAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <p className="mt-1 text-gray-700">{comment.text}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {comments?.comments?.length > 3 && (
-                        <button
-                          onClick={() => setShowAllComments(!showAllComments)}
-                          className="mt-6 text-blue-600 hover:underline flex items-center"
-                        >
-                          {showAllComments ? (
-                            <>
-                              <ChevronUp size={16} className="mr-1" />
-                              Show less
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown size={16} className="mr-1" />
-                              Show all {comments.comments.length} comments
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-center text-gray-500 py-10">
-                      No comments yet. Be the first to comment!
-                    </p>
-                  )}
-                </>
               )}
             </div>
           )}
@@ -499,6 +720,25 @@ const ProjectDetailPage = () => {
           {/* Open roles section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-bold mb-4">Open Roles</h2>
+            
+            {/* Show message for users who have left the project */}
+            {user && project?.pastMembers?.some(member => member.userId?._id === user._id) && (
+              <div className="mb-4 p-3 rounded-lg border bg-yellow-50 border-yellow-200">
+                <p className="text-sm font-medium text-yellow-700">
+                  You have previously been a member of this project. You can apply for roles again.
+                </p>
+              </div>
+            )}
+
+            {/* Show message for cancelled applications */}
+            {user && hasBeenCancelledForAny && (
+              <div className="mb-4 p-3 rounded-lg border bg-blue-50 border-blue-200">
+                <p className="text-sm font-medium text-blue-700">
+                  Some of your applications were cancelled because you were accepted for another role.
+                  You can reapply if you want.
+                </p>
+              </div>
+            )}
             
             {project.openRoles && project.openRoles.length > 0 ? (
               <div className="space-y-4">
@@ -511,6 +751,48 @@ const ProjectDetailPage = () => {
                     {role.description && (
                       <p className="text-gray-600 text-sm mt-1 mb-3">{role.description}</p>
                     )}
+                    
+                    {/* Application status for this specific role */}
+                    {user && project.applications?.some(app => 
+                      app.userId._id === user._id && 
+                      app.roleTitle === role.title && 
+                      ['pending', 'accepted', 'rejected'].includes(app.status)
+                    ) && (
+                      <div className={`mb-3 p-2 rounded-lg border ${
+                        project.applications.find(app => 
+                          app.userId._id === user._id && 
+                          app.roleTitle === role.title
+                        ).status === 'pending' ? 'bg-blue-50 border-blue-200' : 
+                        project.applications.find(app => 
+                          app.userId._id === user._id && 
+                          app.roleTitle === role.title
+                        ).status === 'accepted' ? 'bg-green-50 border-green-200' :
+                        'bg-red-50 border-red-200'
+                      }`}>
+                        <p className={`text-xs font-medium ${
+                          project.applications.find(app => 
+                            app.userId._id === user._id && 
+                            app.roleTitle === role.title
+                          ).status === 'pending' ? 'text-blue-700' : 
+                          project.applications.find(app => 
+                            app.userId._id === user._id && 
+                            app.roleTitle === role.title
+                          ).status === 'accepted' ? 'text-green-700' :
+                          'text-red-700'
+                        }`}>
+                          {project.applications.find(app => 
+                            app.userId._id === user._id && 
+                            app.roleTitle === role.title
+                          ).status === 'pending' ? 'Your application for this role is pending' : 
+                          project.applications.find(app => 
+                            app.userId._id === user._id && 
+                            app.roleTitle === role.title
+                          ).status === 'accepted' ? 'You were accepted for this role' :
+                          'Your application for this role was not accepted'}
+                        </p>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500">
                         {role.filled}/{role.limit} positions filled
@@ -518,11 +800,10 @@ const ProjectDetailPage = () => {
                       
                       <button
                         onClick={() => handleApply(role)}
-                        disabled={isFounder || isTeamMember || hasApplied}
-                        className="btn btn-primary btn-sm"
+                        disabled={getApplyButtonState(role).disabled}
+                        className={`btn btn-sm ${getApplyButtonState(role).style}`}
                       >
-                        <Plus size={16} className="mr-1" />
-                        Apply
+                        {getApplyButtonState(role).text}
                       </button>
                     </div>
                   </div>
@@ -545,17 +826,23 @@ const ProjectDetailPage = () => {
                     <div key={application._id} className="border rounded-lg p-4">
                       <div className="flex items-center mb-2">
                         <img 
-                          src={application.userId.profilePicture || "/avatar.png"} 
-                          alt={application.userId.name} 
+                          src={application.userId?.profilePicture || "/avatar.png"} 
+                          alt={application.userId?.name || "Applicant"} 
                           className="w-8 h-8 rounded-full mr-2" 
                         />
                         <div>
-                          <Link 
-                            to={`/profile/${application.userId.username}`}
-                            className="font-medium hover:underline"
-                          >
-                            {application.userId.name}
-                          </Link>
+                          {application.userId?.username ? (
+                            <Link 
+                              to={`/profile/${application.userId.username}`}
+                              className="font-medium hover:underline"
+                            >
+                              {application.userId.name || "Unknown Applicant"}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">
+                              {application.userId?.name || "Unknown Applicant"}
+                            </span>
+                          )}
                           <p className="text-xs text-gray-500">Applied for: {application.roleTitle}</p>
                         </div>
                       </div>
@@ -567,8 +854,28 @@ const ProjectDetailPage = () => {
                       )}
                       
                       <div className="flex items-center justify-end space-x-2">
-                        <button className="btn btn-sm btn-error">Reject</button>
-                        <button className="btn btn-sm btn-success">Accept</button>
+                        <button 
+                          onClick={() => processApplication({ applicationId: application._id, status: "rejected" })}
+                          disabled={isProcessingApplication}
+                          className="btn btn-sm btn-error"
+                        >
+                          {isProcessingApplication ? (
+                            <Loader size={14} className="animate-spin" />
+                          ) : (
+                            "Reject"
+                          )}
+                        </button>
+                        <button 
+                          onClick={() => processApplication({ applicationId: application._id, status: "accepted" })}
+                          disabled={isProcessingApplication}
+                          className="btn btn-sm btn-success"
+                        >
+                          {isProcessingApplication ? (
+                            <Loader size={14} className="animate-spin" />
+                          ) : (
+                            "Accept"
+                          )}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -616,6 +923,43 @@ const ProjectDetailPage = () => {
                 ) : (
                   "Submit Application"
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Remove Member Confirmation Modal */}
+      {showRemoveConfirmation && memberToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-sm w-full p-5 shadow-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-3">Confirm Team Member Removal</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to remove {memberToRemove.userId?.name || "this member"} from the team?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowRemoveConfirmation(false);
+                  setMemberToRemove(null);
+                }}
+                className="btn btn-outline"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  removeTeamMember(memberToRemove.userId?._id);
+                  setShowRemoveConfirmation(false);
+                  setMemberToRemove(null);
+                }}
+                className="btn btn-error"
+                disabled={isRemovingMember}
+              >
+                {isRemovingMember ? (
+                  <Loader size={14} className="animate-spin mr-2" />
+                ) : null}
+                Remove
               </button>
             </div>
           </div>
