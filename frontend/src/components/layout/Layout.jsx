@@ -1,4 +1,5 @@
 import Navbar from "./Navbar";
+import Footer from "./Footer";
 import ProfileCompletionIndicator from "../ProfileCompletionIndicator";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
@@ -18,12 +19,23 @@ const Layout = ({ children }) => {
 		!location.pathname.includes('/login') &&
 		!location.pathname.includes('/signup');
 	
+	// Check if we're on the landing page
+	const isLandingPage = location.pathname === '/';
+	
 	return (
-		<div className='min-h-screen bg-base-100'>
+		<div className="flex flex-col min-h-screen">
 			<Navbar />
-			<main className='max-w-7xl mx-auto px-4 py-6'>{children}</main>
+			{isLandingPage ? (
+				// Full width main content for landing page
+				<main className="flex-grow">{children}</main>
+			) : (
+				// Width-constrained main content for other pages
+				<main className="flex-grow max-w-7xl mx-auto px-4 py-6 w-full">{children}</main>
+			)}
 			{showProfileIndicator && <ProfileCompletionIndicator />}
+			{!isLandingPage && <Footer />}
 		</div>
 	);
 };
+
 export default Layout;

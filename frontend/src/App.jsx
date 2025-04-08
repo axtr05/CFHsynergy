@@ -20,6 +20,8 @@ import ProjectsPage from "./pages/ProjectsPage";
 import CreateProjectPage from "./pages/CreateProjectPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import EditProjectPage from "./pages/EditProjectPage";
+import LandingPage from "./pages/LandingPage";
+import TestPage from "./pages/TestPage";
 
 // Error Boundary Component for network errors
 const ConnectionErrorBanner = ({ isVisible, onRetry }) => {
@@ -180,7 +182,7 @@ function App() {
 								? needsRoleSelection 
 									? <Navigate to="/role-selection" /> 
 									: <HomePage />
-								: <Navigate to="/login" />
+								: <LandingPage />
 						} 
 					/>
 					<Route 
@@ -202,27 +204,30 @@ function App() {
 						path='/role-selection' 
 						element={<RoleSelectionPage />}
 					/>
-					<Route path='/notifications' element={authUser ? <NotificationsPage /> : <Navigate to={"/login"} />} />
-					<Route path='/network' element={authUser ? <NetworkPage /> : <Navigate to={"/login"} />} />
-					<Route path='/post/:postId' element={authUser ? <PostPage /> : <Navigate to={"/login"} />} />
-					<Route path='/profile/:username' element={authUser ? <ProfilePage /> : <Navigate to={"/login"} />} />
-					<Route path='/profile/:username/activity' element={authUser ? <UserActivityPage /> : <Navigate to={"/login"} />} />
-					<Route path='/connections/:username' element={authUser ? <ConnectionsPage /> : <Navigate to={"/login"} />} />
-					<Route path='/connections/:username/:type' element={authUser ? <ConnectionsPage /> : <Navigate to={"/login"} />} />
-					<Route path='/search' element={authUser ? <SearchResultsPage /> : <Navigate to={"/login"} />} />
+					<Route path='/notifications' element={authUser ? <NotificationsPage /> : <Navigate to={"/"} />} />
+					<Route path='/network' element={authUser ? <NetworkPage /> : <Navigate to={"/"} />} />
+					<Route path='/post/:postId' element={authUser ? <PostPage /> : <Navigate to={"/"} />} />
+					<Route path='/profile/:username' element={authUser ? <ProfilePage /> : <Navigate to={"/"} />} />
+					<Route path='/profile/:username/activity' element={authUser ? <UserActivityPage /> : <Navigate to={"/"} />} />
+					<Route path='/connections/:username' element={authUser ? <ConnectionsPage /> : <Navigate to={"/"} />} />
+					<Route path='/connections/:username/:type' element={authUser ? <ConnectionsPage /> : <Navigate to={"/"} />} />
+					<Route path='/search' element={authUser ? <SearchResultsPage /> : <Navigate to={"/"} />} />
 					
 					{/* Project Routes */}
-					<Route path='/projects' element={authUser ? <ProjectsPage /> : <Navigate to={"/login"} />} />
+					<Route path='/projects' element={authUser ? <ProjectsPage /> : <Navigate to={"/"} />} />
 					<Route 
 						path='/projects/create' 
 						element={
 							authUser 
 								? (authUser.userRole === "founder" ? <CreateProjectPage /> : <Navigate to={"/projects"} />)
-								: <Navigate to={"/login"} />
+								: <Navigate to={"/"} />
 						} 
 					/>
-					<Route path='/projects/:projectId' element={authUser ? <ProjectDetailPage /> : <Navigate to={"/login"} />} />
-					<Route path='/projects/:projectId/edit' element={authUser ? <EditProjectPage /> : <Navigate to={"/login"} />} />
+					<Route path='/projects/:projectId' element={authUser ? <ProjectDetailPage /> : <Navigate to={"/"} />} />
+					<Route path='/projects/:projectId/edit' element={authUser ? <EditProjectPage /> : <Navigate to={"/"} />} />
+					
+					{/* Test route for footer visibility */}
+					<Route path='/test' element={<TestPage />} />
 				</Routes>
 				<Toaster />
 			</Layout>

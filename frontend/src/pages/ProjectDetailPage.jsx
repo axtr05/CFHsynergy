@@ -229,57 +229,20 @@ const ProjectDetailPage = () => {
   }, [user, project, hasShownRejectionMessage]);
 
   // Calculate paginated data
-  const paginatedComments = comments?.comments?.slice(0, COMMENTS_PER_PAGE) || [];
-  const paginatedTeamMembers = project?.teamMembers?.slice(
-    (teamMembersPage - 1) * TEAM_MEMBERS_PER_PAGE,
-    teamMembersPage * TEAM_MEMBERS_PER_PAGE
-  ) || [];
+  const paginatedComments = comments?.comments || [];
+  const totalCommentsPages = comments ? Math.ceil(comments.total / COMMENTS_PER_PAGE) : 1;
+  const paginatedTeamMembers = project?.teamMembers || [];
+  const totalTeamMembersPages = project?.teamMembers 
+    ? Math.ceil(project.teamMembers.length / TEAM_MEMBERS_PER_PAGE) 
+    : 1;
 
-  const totalCommentsPages = Math.ceil((comments?.totalComments || 0) / COMMENTS_PER_PAGE);
-  const totalTeamMembersPages = Math.ceil((project?.teamMembers?.length || 0) / TEAM_MEMBERS_PER_PAGE);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader className="h-10 w-10 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto py-10 px-4">
-        <div className="text-center bg-red-50 p-10 rounded-lg">
-          <h2 className="text-2xl text-red-600 mb-4">Error Loading Project</h2>
-          <p className="text-gray-700 mb-6">{error.response?.data?.message || "Something went wrong"}</p>
-          <Link to="/projects" className="btn btn-primary">
-            Back to Projects
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="container mx-auto py-10 px-4">
-        <div className="text-center bg-yellow-50 p-10 rounded-lg">
-          <h2 className="text-2xl text-yellow-600 mb-4">Project Not Found</h2>
-          <p className="text-gray-700 mb-6">The project you're looking for doesn't exist or has been removed.</p>
-          <Link to="/projects" className="btn btn-primary">
-            Back to Projects
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const isFounder = user && project?.founder?._id === user._id;
-  const hasApplied = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "pending");
-  const hasBeenRejectedForAny = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "rejected");
-  const hasBeenCancelledForAny = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "cancelled");
-  const isPendingApprovalForAny = user && project?.applications?.some(app => app.userId._id === user._id && app.status === "pending");
-  const isTeamMember = project?.teamMembers?.some(member => member.userId?._id === user?._id);
+  // Variable definitions
+  const isFounder = user && project?.founder?._id === user?._id;
+  const hasApplied = user && project?.applications?.some(app => app?.userId?._id === user?._id && app?.status === "pending");
+  const hasBeenRejectedForAny = user && project?.applications?.some(app => app?.userId?._id === user._id && app?.status === "rejected");
+  const hasBeenCancelledForAny = user && project?.applications?.some(app => app?.userId?._id === user._id && app?.status === "cancelled");
+  const isPendingApprovalForAny = user && project?.applications?.some(app => app?.userId?._id === user._id && app?.status === "pending");
+  const isTeamMember = project?.teamMembers?.some(member => member?.userId?._id === user?._id);
   const hasUpvoted = project?.upvotes?.some(upvoteId => upvoteId === user?._id);
   
   const projectCommentsToShow = showAllComments 
@@ -287,12 +250,21 @@ const ProjectDetailPage = () => {
     : comments?.comments?.slice(0, 3);
 
   const getApplyButtonState = (role) => {
+    // Handle case when role is null or undefined
+    if (!role) {
+      return { 
+        text: "Select a role", 
+        disabled: true, 
+        style: "btn-disabled" 
+      };
+    }
+    
     if (isFounder) return { text: "You're the founder", disabled: true, style: "btn-disabled" };
     if (isTeamMember) return { text: "You're a member", disabled: true, style: "btn-disabled" };
     
     // Check for role-specific application status
     const userApplication = user && project?.applications?.find(
-      app => app.userId._id === user._id && app.roleTitle === role.title
+      app => app?.userId?._id === user?._id && app?.roleTitle === role?.title
     );
     
     if (userApplication) {
@@ -322,7 +294,8 @@ const ProjectDetailPage = () => {
     };
   };
 
-  const buttonState = getApplyButtonState(selectedRole);
+  // Only get button state if selectedRole exists
+  const buttonState = selectedRole ? getApplyButtonState(selectedRole) : { text: "Select a role", disabled: true, style: "btn-disabled" };
   
   // Get stage label
   const getStageLabel = (stage) => {
@@ -340,630 +313,663 @@ const ProjectDetailPage = () => {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      {/* Project header */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
-        {project.poster ? (
-          <div className="relative w-full" style={{ height: "400px" }}>
-            <img 
-              src={project.poster} 
-              alt={project.name} 
-              className="w-full h-full object-contain bg-gray-50"
-            />
-          </div>
-        ) : (
-          <div className="w-full h-80 bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
-            <h1 className="text-4xl font-bold">{project.name}</h1>
-          </div>
-        )}
-        
-        <div className="p-6">
-          <div className="mb-4 flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-1">{project.name}</h1>
-              <div className="flex items-center mb-4">
-                {project?.founder?.username && (
-                  <Link to={`/profile/${project.founder.username}`} className="flex items-center mr-4">
-                    <img 
-                      src={project.founder.profilePicture || '/avatar.png'} 
-                      alt={project.founder.name}
-                      className="w-6 h-6 rounded-full mr-2"
-                    />
-                    <span className="text-gray-700 hover:underline font-medium">{project.founder.name}</span>
-                  </Link>
-                )}
-                <span className="text-gray-500 text-sm">{project.upvotes?.length || 0} upvotes</span>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              {project.website && (
-                <a 
-                  href={project.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-outline btn-sm flex items-center gap-1"
-                >
-                  <ExternalLink size={16} />
-                  Visit Website
-                </a>
-              )}
-              
-              {/* Edit Project Button - Only visible to founder */}
-              {isFounder && (
-                <Link 
-                  to={`/projects/${projectId}/edit`}
-                  className="btn btn-primary btn-sm flex items-center gap-1"
-                >
-                  <Edit size={16} />
-                  Edit Project
-                </Link>
-              )}
-              
-              <button 
-                onClick={() => upvoteProject()}
-                disabled={isUpvoting || hasUpvoted}
-                className={`btn btn-sm ${hasUpvoted ? 'btn-primary text-white' : 'btn-outline'}`}
-              >
-                <ThumbsUp size={16} className="mr-1" />
-                {hasUpvoted ? 'Upvoted' : 'Upvote'}
-              </button>
-            </div>
-          </div>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="text-gray-500">Loading project details...</p>
         </div>
-      </div>
-      
-      {/* Tab navigation */}
-      <div className="flex border-b mb-6">
-        <button
-          onClick={() => setActiveTab("details")}
-          className={`py-3 px-5 font-medium flex items-center gap-2 ${
-            activeTab === "details"
-              ? "text-primary border-b-2 border-primary"
-              : "text-gray-600 hover:text-primary"
-          }`}
-        >
-          <Info size={18} />
-          DETAILS
-        </button>
-        
-        <button
-          onClick={() => setActiveTab("team")}
-          className={`py-3 px-5 font-medium flex items-center gap-2 ${
-            activeTab === "team"
-              ? "text-primary border-b-2 border-primary"
-              : "text-gray-600 hover:text-primary"
-          }`}
-        >
-          <Users size={18} />
-          TEAM MEMBERS
-        </button>
-        
-        <button
-          onClick={() => setActiveTab("comments")}
-          className={`py-3 px-5 font-medium flex items-center gap-2 ${
-            activeTab === "comments"
-              ? "text-primary border-b-2 border-primary"
-              : "text-gray-600 hover:text-primary"
-          }`}
-        >
-          <MessageSquare size={18} />
-          COMMENTS {comments?.comments?.length > 0 && `(${comments.comments.length})`}
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Main content */}
-        <div className="md:col-span-2">
-          {/* Details tab */}
-          {activeTab === "details" && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Description</h2>
-              <div className="whitespace-pre-wrap text-gray-700 mb-8">
-                {project.description}
-              </div>
-              
-              {project.website && (
-                <div className="mb-4">
-                  <h3 className="text-md font-semibold mb-2">Website</h3>
-                  <a 
-                    href={project.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center text-blue-600 hover:underline"
-                  >
-                    <LinkIcon size={16} className="mr-2" />
-                    {project.website}
-                  </a>
-                </div>
-              )}
-              
-              <div className="mb-4">
-                <h3 className="text-md font-semibold mb-2">Category</h3>
-                <p className="text-gray-700">{project.category}</p>
-              </div>
-              
-              <div className="mb-4">
-                <h3 className="text-md font-semibold mb-2">Current Stage</h3>
-                <p className="text-gray-700">{getStageLabel(project.stage)}</p>
-              </div>
-              
-              <div>
-                <h3 className="text-md font-semibold mb-2">Created</h3>
-                <div className="flex items-center text-gray-700">
-                  <Clock size={16} className="mr-2" />
-                  {new Date(project.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Team members tab */}
-          {activeTab === "team" && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Team Members</h2>
-              
-              {/* Team Members List */}
-              <div className="space-y-4">
-                {/* Founder - Always show first */}
-                {project?.founder && (
-                  <div className="flex items-center justify-between border-b pb-4">
-                    <div className="flex items-center">
-                      <img 
-                        src={project.founder?.profilePicture || "/avatar.png"} 
-                        alt={project.founder?.name || "Founder"} 
-                        className="w-8 h-8 rounded-full mr-3" 
-                      />
-                      <div>
-                        {project.founder?.username ? (
-                          <Link 
-                            to={`/profile/${project.founder.username}`}
-                            className="font-medium hover:text-primary hover:underline"
-                          >
-                            {project.founder.name || "Unknown Founder"}
-                          </Link>
-                        ) : (
-                          <span className="font-medium">
-                            {project.founder?.name || "Unknown Founder"}
-                          </span>
-                        )}
-                        <p className="text-xs text-gray-500">Project Founder</p>
-                      </div>
-                    </div>
-                    {/* Only show founder badge if the viewer is not the founder */}
-                    {!isFounder && (
-                      <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-medium">
-                        Founder
-                      </span>
-                    )}
-                  </div>
-                )}
-                
-                {/* Other team members (excluding founder) */}
-                {paginatedTeamMembers
-                  .filter(member => member.userId?._id !== project.founder?._id)
-                  .map((member, index) => (
-                    <div key={member.userId?._id || index} className="flex items-center justify-between border-b pb-4 last:border-0">
-                      <div className="flex items-center">
-                        <img 
-                          src={member.userId?.profilePicture || "/avatar.png"} 
-                          alt={member.userId?.name || "Team Member"} 
-                          className="w-8 h-8 rounded-full mr-3" 
-                        />
-                        <div>
-                          {member.userId?.username ? (
-                            <Link 
-                              to={`/profile/${member.userId.username}`}
-                              className="font-medium hover:text-primary hover:underline"
-                            >
-                              {member.userId.name || "Unknown Member"}
-                            </Link>
-                          ) : (
-                            <span className="font-medium">
-                              {member.userId?.name || "Unknown Member"}
-                            </span>
-                          )}
-                          <p className="text-xs text-gray-500">Joined {new Date(member.joinDate).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
-                          {member.role || "Team Member"}
-                        </span>
-                        
-                        {/* Remove button - Only visible to founder */}
-                        {isFounder && (
-                          <button
-                            onClick={() => {
-                              setMemberToRemove(member);
-                              setShowRemoveConfirmation(true);
-                            }}
-                            className="btn btn-error btn-sm"
-                            disabled={isRemovingMember}
-                          >
-                            {isRemovingMember ? (
-                              <Loader size={14} className="animate-spin" />
-                            ) : (
-                              "Remove"
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                
-                {project?.teamMembers?.length <= 1 && (
-                  <p className="text-gray-500 italic py-2">No team members yet besides the founder.</p>
-                )}
-              </div>
-
-              {/* Team Members Pagination */}
-              {totalTeamMembersPages > 1 && (
-                <div className="flex justify-center mt-4">
-                  <div className="join">
-                    <button
-                      className="join-item btn btn-sm"
-                      onClick={() => setTeamMembersPage(prev => Math.max(prev - 1, 1))}
-                      disabled={teamMembersPage === 1}
-                    >
-                      «
-                    </button>
-                    <button className="join-item btn btn-sm">
-                      Page {teamMembersPage}
-                    </button>
-                    <button
-                      className="join-item btn btn-sm"
-                      onClick={() => setTeamMembersPage(prev => Math.min(prev + 1, totalTeamMembersPages))}
-                      disabled={teamMembersPage === totalTeamMembersPages}
-                    >
-                      »
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Comments tab */}
-          {activeTab === "comments" && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Comments</h2>
-              
-              {/* Comment form */}
-              {user && (
-                <form onSubmit={handleSubmitComment} className="mb-6">
-                  <div className="flex">
-                    <img 
-                      src={user.profilePicture || "/avatar.png"} 
-                      alt={user.name} 
-                      className="w-10 h-10 rounded-full mr-3" 
-                    />
-                    <div className="flex-1">
-                      <textarea
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="textarea textarea-bordered w-full h-24"
-                        required
-                      />
-                      <div className="flex justify-end mt-2">
-                        <button 
-                          type="submit" 
-                          className="btn btn-primary btn-sm"
-                          disabled={isAddingComment}
-                        >
-                          {isAddingComment ? (
-                            <>
-                              <Loader size={16} className="mr-2 animate-spin" />
-                              Posting...
-                            </>
-                          ) : (
-                            "Post Comment"
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </form>
-              )}
-              
-              {/* Comments List */}
-              <div className="space-y-4">
-                {paginatedComments.map((comment) => (
-                  <div key={comment._id} className="border-b pb-4">
-                    <div className="flex items-center mb-2">
-                      <img 
-                        src={comment.user.profilePicture || "/avatar.png"} 
-                        alt={comment.user.name} 
-                        className="w-6 h-6 rounded-full mr-2" 
-                      />
-                      <span className="text-sm font-medium">{comment.user.name}</span>
-                    </div>
-                    <p className="text-gray-600 text-sm">{comment.text}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Comments Pagination */}
-              {totalCommentsPages > 1 && (
-                <div className="flex justify-center mt-4">
-                  <div className="join">
-                    <button
-                      className="join-item btn btn-sm"
-                      onClick={() => setCommentsPage(prev => Math.max(prev - 1, 1))}
-                      disabled={commentsPage === 1}
-                    >
-                      «
-                    </button>
-                    <button className="join-item btn btn-sm">
-                      Page {commentsPage}
-                    </button>
-                    <button
-                      className="join-item btn btn-sm"
-                      onClick={() => setCommentsPage(prev => Math.min(prev + 1, totalCommentsPages))}
-                      disabled={commentsPage === totalCommentsPages}
-                    >
-                      »
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center h-96">
+          <div className="text-red-500 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-gray-800 font-medium mb-2">Error Loading Project</p>
+          <p className="text-gray-500 text-center mb-4">There was a problem loading this project.</p>
+          <button 
+            onClick={() => refetch()} 
+            className="btn btn-primary"
+          >
+            Try Again
+          </button>
         </div>
-        
-        {/* Sidebar */}
-        <div className="md:col-span-1">
-          {/* Open roles section */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4">Open Roles</h2>
-            
-            {/* Show message for users who have left the project */}
-            {user && project?.pastMembers?.some(member => member.userId?._id === user._id) && (
-              <div className="mb-4 p-3 rounded-lg border bg-yellow-50 border-yellow-200">
-                <p className="text-sm font-medium text-yellow-700">
-                  You have previously been a member of this project. You can apply for roles again.
-                </p>
-              </div>
-            )}
-
-            {/* Show message for cancelled applications */}
-            {user && hasBeenCancelledForAny && (
-              <div className="mb-4 p-3 rounded-lg border bg-blue-50 border-blue-200">
-                <p className="text-sm font-medium text-blue-700">
-                  Some of your applications were cancelled because you were accepted for another role.
-                  You can reapply if you want.
-                </p>
-              </div>
-            )}
-            
-            {project.openRoles && project.openRoles.length > 0 ? (
-              <div className="space-y-4">
-                {project.openRoles.map((role, index) => (
-                  <div 
-                    key={index} 
-                    className="border rounded-lg p-4 transition-all hover:border-primary"
-                  >
-                    <h3 className="font-bold text-lg">{role.title}</h3>
-                    {role.description && (
-                      <p className="text-gray-600 text-sm mt-1 mb-3">{role.description}</p>
-                    )}
-                    
-                    {/* Application status for this specific role */}
-                    {user && project.applications?.some(app => 
-                      app.userId._id === user._id && 
-                      app.roleTitle === role.title && 
-                      ['pending', 'accepted', 'rejected'].includes(app.status)
-                    ) && (
-                      <div className={`mb-3 p-2 rounded-lg border ${
-                        project.applications.find(app => 
-                          app.userId._id === user._id && 
-                          app.roleTitle === role.title
-                        ).status === 'pending' ? 'bg-blue-50 border-blue-200' : 
-                        project.applications.find(app => 
-                          app.userId._id === user._id && 
-                          app.roleTitle === role.title
-                        ).status === 'accepted' ? 'bg-green-50 border-green-200' :
-                        'bg-red-50 border-red-200'
-                      }`}>
-                        <p className={`text-xs font-medium ${
-                          project.applications.find(app => 
-                            app.userId._id === user._id && 
-                            app.roleTitle === role.title
-                          ).status === 'pending' ? 'text-blue-700' : 
-                          project.applications.find(app => 
-                            app.userId._id === user._id && 
-                            app.roleTitle === role.title
-                          ).status === 'accepted' ? 'text-green-700' :
-                          'text-red-700'
-                        }`}>
-                          {project.applications.find(app => 
-                            app.userId._id === user._id && 
-                            app.roleTitle === role.title
-                          ).status === 'pending' ? 'Your application for this role is pending' : 
-                          project.applications.find(app => 
-                            app.userId._id === user._id && 
-                            app.roleTitle === role.title
-                          ).status === 'accepted' ? 'You were accepted for this role' :
-                          'Your application for this role was not accepted'}
-                        </p>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">
-                        {role.filled}/{role.limit} positions filled
-                      </span>
-                      
-                      <button
-                        onClick={() => handleApply(role)}
-                        disabled={getApplyButtonState(role).disabled}
-                        className={`btn btn-sm ${getApplyButtonState(role).style}`}
-                      >
-                        {getApplyButtonState(role).text}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+      ) : !project ? (
+        <div className="flex flex-col items-center justify-center h-96">
+          <p className="text-gray-800 font-medium mb-2">Project Not Found</p>
+          <p className="text-gray-500 text-center mb-4">The requested project could not be found.</p>
+          <Link to="/projects" className="btn btn-primary">
+            Browse Projects
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Project header */}
+          <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+            {project.poster ? (
+              <div className="relative w-full" style={{ height: "400px" }}>
+                <img 
+                  src={project.poster} 
+                  alt={project.name} 
+                  className="w-full h-full object-contain bg-gray-50"
+                />
               </div>
             ) : (
-              <p className="text-gray-500 italic">No open roles at the moment.</p>
+              <div className="w-full h-80 bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
+                <h1 className="text-4xl font-bold">{project.name}</h1>
+              </div>
             )}
+            
+            <div className="p-6">
+              <div className="mb-4 flex items-start justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold mb-1">{project.name}</h1>
+                  <div className="flex items-center mb-4">
+                    {project?.founder?.username && (
+                      <Link to={`/profile/${project.founder.username}`} className="flex items-center mr-4">
+                        <img 
+                          src={project.founder.profilePicture || '/avatar.png'} 
+                          alt={project.founder.name}
+                          className="w-6 h-6 rounded-full mr-2"
+                        />
+                        <span className="text-gray-700 hover:underline font-medium">{project.founder.name}</span>
+                      </Link>
+                    )}
+                    <span className="text-gray-500 text-sm">{project.upvotes?.length || 0} upvotes</span>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {project.website && (
+                    <a 
+                      href={project.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline btn-sm flex items-center gap-1"
+                    >
+                      <ExternalLink size={16} />
+                      Visit Website
+                    </a>
+                  )}
+                  
+                  {/* Edit Project Button - Only visible to founder */}
+                  {isFounder && (
+                    <Link 
+                      to={`/projects/${projectId}/edit`}
+                      className="btn btn-primary btn-sm flex items-center gap-1"
+                    >
+                      <Edit size={16} />
+                      Edit Project
+                    </Link>
+                  )}
+                  
+                  <button 
+                    onClick={() => upvoteProject()}
+                    disabled={isUpvoting || hasUpvoted}
+                    className={`btn btn-sm ${hasUpvoted ? 'btn-primary text-white' : 'btn-outline'}`}
+                  >
+                    <ThumbsUp size={16} className="mr-1" />
+                    {hasUpvoted ? 'Upvoted' : 'Upvote'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           
-          {/* Pending applications section - Only visible to founder */}
-          {isFounder && project.applications && project.applications.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Pending Applications</h2>
+          {/* Tab navigation */}
+          <div className="flex border-b mb-6">
+            <button
+              onClick={() => setActiveTab("details")}
+              className={`py-3 px-5 font-medium flex items-center gap-2 ${
+                activeTab === "details"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-gray-600 hover:text-primary"
+              }`}
+            >
+              <Info size={18} />
+              DETAILS
+            </button>
+            
+            <button
+              onClick={() => setActiveTab("team")}
+              className={`py-3 px-5 font-medium flex items-center gap-2 ${
+                activeTab === "team"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-gray-600 hover:text-primary"
+              }`}
+            >
+              <Users size={18} />
+              TEAM MEMBERS
+            </button>
+            
+            <button
+              onClick={() => setActiveTab("comments")}
+              className={`py-3 px-5 font-medium flex items-center gap-2 ${
+                activeTab === "comments"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-gray-600 hover:text-primary"
+              }`}
+            >
+              <MessageSquare size={18} />
+              COMMENTS {comments?.comments?.length > 0 && `(${comments.comments.length})`}
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Main content */}
+            <div className="md:col-span-2">
+              {/* Details tab */}
+              {activeTab === "details" && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-bold mb-4">Description</h2>
+                  <div className="whitespace-pre-wrap text-gray-700 mb-8">
+                    {project.description}
+                  </div>
+                  
+                  {project.website && (
+                    <div className="mb-4">
+                      <h3 className="text-md font-semibold mb-2">Website</h3>
+                      <a 
+                        href={project.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center text-blue-600 hover:underline"
+                      >
+                        <LinkIcon size={16} className="mr-2" />
+                        {project.website}
+                      </a>
+                    </div>
+                  )}
+                  
+                  <div className="mb-4">
+                    <h3 className="text-md font-semibold mb-2">Category</h3>
+                    <p className="text-gray-700">{project.category}</p>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h3 className="text-md font-semibold mb-2">Current Stage</h3>
+                    <p className="text-gray-700">{getStageLabel(project.stage)}</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-md font-semibold mb-2">Created</h3>
+                    <div className="flex items-center text-gray-700">
+                      <Clock size={16} className="mr-2" />
+                      {new Date(project.createdAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
               
-              <div className="space-y-4">
-                {project.applications
-                  .filter(app => app.status === "pending")
-                  .map((application) => (
-                    <div key={application._id} className="border rounded-lg p-4">
-                      <div className="flex items-center mb-2">
-                        <img 
-                          src={application.userId?.profilePicture || "/avatar.png"} 
-                          alt={application.userId?.name || "Applicant"} 
-                          className="w-8 h-8 rounded-full mr-2" 
-                        />
-                        <div>
-                          {application.userId?.username ? (
-                            <Link 
-                              to={`/profile/${application.userId.username}`}
-                              className="font-medium hover:underline"
-                            >
-                              {application.userId.name || "Unknown Applicant"}
-                            </Link>
-                          ) : (
-                            <span className="font-medium">
-                              {application.userId?.name || "Unknown Applicant"}
-                            </span>
-                          )}
-                          <p className="text-xs text-gray-500">Applied for: {application.roleTitle}</p>
+              {/* Team members tab */}
+              {activeTab === "team" && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-bold mb-4">Team Members</h2>
+                  
+                  {/* Team Members List */}
+                  <div className="space-y-4">
+                    {/* Founder - Always show first */}
+                    {project?.founder && (
+                      <div className="flex items-center justify-between border-b pb-4">
+                        <div className="flex items-center">
+                          <img 
+                            src={project.founder?.profilePicture || "/avatar.png"} 
+                            alt={project.founder?.name || "Founder"} 
+                            className="w-8 h-8 rounded-full mr-3" 
+                          />
+                          <div>
+                            {project.founder?.username ? (
+                              <Link 
+                                to={`/profile/${project.founder.username}`}
+                                className="font-medium hover:text-primary hover:underline"
+                              >
+                                {project.founder.name || "Unknown Founder"}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">
+                                {project.founder?.name || "Unknown Founder"}
+                              </span>
+                            )}
+                            <p className="text-xs text-gray-500">Project Founder</p>
+                          </div>
                         </div>
+                        {/* Only show founder badge if the viewer is not the founder */}
+                        {!isFounder && (
+                          <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-medium">
+                            Founder
+                          </span>
+                        )}
                       </div>
-                      
-                      {application.message && (
-                        <p className="text-sm text-gray-700 mt-2 mb-3 bg-gray-50 p-2 rounded">
-                          {application.message}
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center justify-end space-x-2">
-                        <button 
-                          onClick={() => processApplication({ applicationId: application._id, status: "rejected" })}
-                          disabled={isProcessingApplication}
-                          className="btn btn-sm btn-error"
+                    )}
+                    
+                    {/* Other team members (excluding founder) */}
+                    {paginatedTeamMembers
+                      .filter(member => member.userId?._id !== project.founder?._id)
+                      .map((member, index) => (
+                        <div key={member.userId?._id || index} className="flex items-center justify-between border-b pb-4 last:border-0">
+                          <div className="flex items-center">
+                            <img 
+                              src={member.userId?.profilePicture || "/avatar.png"} 
+                              alt={member.userId?.name || "Team Member"} 
+                              className="w-8 h-8 rounded-full mr-3" 
+                            />
+                            <div>
+                              {member.userId?.username ? (
+                                <Link 
+                                  to={`/profile/${member.userId.username}`}
+                                  className="font-medium hover:text-primary hover:underline"
+                                >
+                                  {member.userId.name || "Unknown Member"}
+                                </Link>
+                              ) : (
+                                <span className="font-medium">
+                                  {member.userId?.name || "Unknown Member"}
+                                </span>
+                              )}
+                              <p className="text-xs text-gray-500">Joined {new Date(member.joinDate).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
+                              {member.role || "Team Member"}
+                            </span>
+                            
+                            {/* Remove button - Only visible to founder */}
+                            {isFounder && (
+                              <button
+                                onClick={() => {
+                                  setMemberToRemove(member);
+                                  setShowRemoveConfirmation(true);
+                                }}
+                                className="btn btn-error btn-sm"
+                                disabled={isRemovingMember}
+                              >
+                                {isRemovingMember ? (
+                                  <Loader size={14} className="animate-spin" />
+                                ) : (
+                                  "Remove"
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    
+                    {project?.teamMembers?.length <= 1 && (
+                      <p className="text-gray-500 italic py-2">No team members yet besides the founder.</p>
+                    )}
+                  </div>
+
+                  {/* Team Members Pagination */}
+                  {totalTeamMembersPages > 1 && (
+                    <div className="flex justify-center mt-4">
+                      <div className="join">
+                        <button
+                          className="join-item btn btn-sm"
+                          onClick={() => setTeamMembersPage(prev => Math.max(prev - 1, 1))}
+                          disabled={teamMembersPage === 1}
                         >
-                          {isProcessingApplication ? (
-                            <Loader size={14} className="animate-spin" />
-                          ) : (
-                            "Reject"
-                          )}
+                          «
                         </button>
-                        <button 
-                          onClick={() => processApplication({ applicationId: application._id, status: "accepted" })}
-                          disabled={isProcessingApplication}
-                          className="btn btn-sm btn-success"
+                        <button className="join-item btn btn-sm">
+                          Page {teamMembersPage}
+                        </button>
+                        <button
+                          className="join-item btn btn-sm"
+                          onClick={() => setTeamMembersPage(prev => Math.min(prev + 1, totalTeamMembersPages))}
+                          disabled={teamMembersPage === totalTeamMembersPages}
                         >
-                          {isProcessingApplication ? (
-                            <Loader size={14} className="animate-spin" />
-                          ) : (
-                            "Accept"
-                          )}
+                          »
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )}
+                </div>
+              )}
+              
+              {/* Comments tab */}
+              {activeTab === "comments" && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-bold mb-4">Comments</h2>
+                  
+                  {/* Comment form */}
+                  {user && (
+                    <form onSubmit={handleSubmitComment} className="mb-6">
+                      <div className="flex">
+                        <img 
+                          src={user.profilePicture || "/avatar.png"} 
+                          alt={user.name} 
+                          className="w-10 h-10 rounded-full mr-3" 
+                        />
+                        <div className="flex-1">
+                          <textarea
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            placeholder="Add a comment..."
+                            className="textarea textarea-bordered w-full h-24"
+                            required
+                          />
+                          <div className="flex justify-end mt-2">
+                            <button 
+                              type="submit" 
+                              className="btn btn-primary btn-sm"
+                              disabled={isAddingComment}
+                            >
+                              {isAddingComment ? (
+                                <>
+                                  <Loader size={16} className="mr-2 animate-spin" />
+                                  Posting...
+                                </>
+                              ) : (
+                                "Post Comment"
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+                  )}
+                  
+                  {/* Comments List */}
+                  <div className="space-y-4">
+                    {paginatedComments.map((comment) => (
+                      <div key={comment._id} className="border-b pb-4">
+                        <div className="flex items-center mb-2">
+                          <img 
+                            src={comment.user.profilePicture || "/avatar.png"} 
+                            alt={comment.user.name} 
+                            className="w-6 h-6 rounded-full mr-2" 
+                          />
+                          <span className="text-sm font-medium">{comment.user.name}</span>
+                        </div>
+                        <p className="text-gray-600 text-sm">{comment.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Comments Pagination */}
+                  {totalCommentsPages > 1 && (
+                    <div className="flex justify-center mt-4">
+                      <div className="join">
+                        <button
+                          className="join-item btn btn-sm"
+                          onClick={() => setCommentsPage(prev => Math.max(prev - 1, 1))}
+                          disabled={commentsPage === 1}
+                        >
+                          «
+                        </button>
+                        <button className="join-item btn btn-sm">
+                          Page {commentsPage}
+                        </button>
+                        <button
+                          className="join-item btn btn-sm"
+                          onClick={() => setCommentsPage(prev => Math.min(prev + 1, totalCommentsPages))}
+                          disabled={commentsPage === totalCommentsPages}
+                        >
+                          »
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Sidebar */}
+            <div className="md:col-span-1">
+              {/* Open roles section */}
+              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 className="text-xl font-bold mb-4">Open Roles</h2>
+                
+                {/* Show message for users who have left the project */}
+                {user && project?.pastMembers?.some(member => member.userId?._id === user._id) && (
+                  <div className="mb-4 p-3 rounded-lg border bg-yellow-50 border-yellow-200">
+                    <p className="text-sm font-medium text-yellow-700">
+                      You have previously been a member of this project. You can apply for roles again.
+                    </p>
+                  </div>
+                )}
+
+                {/* Show message for cancelled applications */}
+                {user && hasBeenCancelledForAny && (
+                  <div className="mb-4 p-3 rounded-lg border bg-blue-50 border-blue-200">
+                    <p className="text-sm font-medium text-blue-700">
+                      Some of your applications were cancelled because you were accepted for another role.
+                      You can reapply if you want.
+                    </p>
+                  </div>
+                )}
+                
+                {project && project.openRoles && project.openRoles.length > 0 ? (
+                  <div className="space-y-4">
+                    {project.openRoles.map((role, index) => (
+                      <div 
+                        key={index} 
+                        className="border rounded-lg p-4 transition-all hover:border-primary"
+                      >
+                        <h3 className="font-bold text-lg">{role.title}</h3>
+                        {role.description && (
+                          <p className="text-gray-600 text-sm mt-1 mb-3">{role.description}</p>
+                        )}
+                        
+                        {/* Application status for this specific role */}
+                        {user && project.applications?.some(app => 
+                          app.userId._id === user._id && 
+                          app.roleTitle === role.title && 
+                          ['pending', 'accepted', 'rejected'].includes(app.status)
+                        ) && (
+                          <div className={`mb-3 p-2 rounded-lg border ${
+                            project.applications.find(app => 
+                              app.userId._id === user._id && 
+                              app.roleTitle === role.title
+                            ).status === 'pending' ? 'bg-blue-50 border-blue-200' : 
+                            project.applications.find(app => 
+                              app.userId._id === user._id && 
+                              app.roleTitle === role.title
+                            ).status === 'accepted' ? 'bg-green-50 border-green-200' :
+                            'bg-red-50 border-red-200'
+                          }`}>
+                            <p className={`text-xs font-medium ${
+                              project.applications.find(app => 
+                                app.userId._id === user._id && 
+                                app.roleTitle === role.title
+                              ).status === 'pending' ? 'text-blue-700' : 
+                              project.applications.find(app => 
+                                app.userId._id === user._id && 
+                                app.roleTitle === role.title
+                              ).status === 'accepted' ? 'text-green-700' :
+                              'text-red-700'
+                            }`}>
+                              {project.applications.find(app => 
+                                app.userId._id === user._id && 
+                                app.roleTitle === role.title
+                              ).status === 'pending' ? 'Your application for this role is pending' : 
+                              project.applications.find(app => 
+                                app.userId._id === user._id && 
+                                app.roleTitle === role.title
+                              ).status === 'accepted' ? 'You were accepted for this role' :
+                              'Your application for this role was not accepted'}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            {role.filled}/{role.limit} positions filled
+                          </span>
+                          
+                          <button
+                            onClick={() => handleApply(role)}
+                            disabled={role ? getApplyButtonState(role).disabled : true}
+                            className={`btn btn-sm ${role ? getApplyButtonState(role).style : 'btn-disabled'}`}
+                          >
+                            {role ? getApplyButtonState(role).text : 'Select role'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No open roles at the moment.</p>
+                )}
+              </div>
+              
+              {/* Pending applications section - Only visible to founder */}
+              {isFounder && project.applications && project.applications.length > 0 && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-bold mb-4">Pending Applications</h2>
+                  
+                  <div className="space-y-4">
+                    {project.applications
+                      .filter(app => app.status === "pending")
+                      .map((application) => (
+                        <div key={application._id} className="border rounded-lg p-4">
+                          <div className="flex items-center mb-2">
+                            <img 
+                              src={application.userId?.profilePicture || "/avatar.png"} 
+                              alt={application.userId?.name || "Applicant"} 
+                              className="w-8 h-8 rounded-full mr-2" 
+                            />
+                            <div>
+                              {application.userId?.username ? (
+                                <Link 
+                                  to={`/profile/${application.userId.username}`}
+                                  className="font-medium hover:underline"
+                                >
+                                  {application.userId.name || "Unknown Applicant"}
+                                </Link>
+                              ) : (
+                                <span className="font-medium">
+                                  {application.userId?.name || "Unknown Applicant"}
+                                </span>
+                              )}
+                              <p className="text-xs text-gray-500">Applied for: {application.roleTitle}</p>
+                            </div>
+                          </div>
+                          
+                          {application.message && (
+                            <p className="text-sm text-gray-700 mt-2 mb-3 bg-gray-50 p-2 rounded">
+                              {application.message}
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center justify-end space-x-2">
+                            <button 
+                              onClick={() => processApplication({ applicationId: application._id, status: "rejected" })}
+                              disabled={isProcessingApplication}
+                              className="btn btn-sm btn-error"
+                            >
+                              {isProcessingApplication ? (
+                                <Loader size={14} className="animate-spin" />
+                              ) : (
+                                "Reject"
+                              )}
+                            </button>
+                            <button 
+                              onClick={() => processApplication({ applicationId: application._id, status: "accepted" })}
+                              disabled={isProcessingApplication}
+                              className="btn btn-sm btn-success"
+                            >
+                              {isProcessingApplication ? (
+                                <Loader size={14} className="animate-spin" />
+                              ) : (
+                                "Accept"
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Application Modal */}
+          {showApplicationModal && selectedRole && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg max-w-md w-full p-6">
+                <h3 className="text-xl font-bold mb-4">Apply for {selectedRole.title}</h3>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Message to Project Owner (Optional)
+                  </label>
+                  <textarea
+                    value={applicationMessage}
+                    onChange={(e) => setApplicationMessage(e.target.value)}
+                    placeholder="Tell the project founder why you're a good fit for this role..."
+                    className="textarea textarea-bordered w-full h-32"
+                  />
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowApplicationModal(false)}
+                    className="btn btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitApplication}
+                    disabled={isSubmittingApplication}
+                    className="btn btn-primary"
+                  >
+                    {isSubmittingApplication ? (
+                      <>
+                        <Loader size={16} className="mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Application"
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
-        </div>
-      </div>
-      
-      {/* Application Modal */}
-      {showApplicationModal && selectedRole && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold mb-4">Apply for {selectedRole.title}</h3>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Message to Project Owner (Optional)
-              </label>
-              <textarea
-                value={applicationMessage}
-                onChange={(e) => setApplicationMessage(e.target.value)}
-                placeholder="Tell the project founder why you're a good fit for this role..."
-                className="textarea textarea-bordered w-full h-32"
-              />
+          
+          {/* Remove Member Confirmation Modal */}
+          {showRemoveConfirmation && memberToRemove && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg max-w-sm w-full p-5 shadow-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Confirm Team Member Removal</h3>
+                <p className="text-gray-600 mb-4">
+                  Are you sure you want to remove {memberToRemove.userId?.name || "this member"} from the team?
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowRemoveConfirmation(false);
+                      setMemberToRemove(null);
+                    }}
+                    className="btn btn-outline"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      removeTeamMember(memberToRemove.userId?._id);
+                      setShowRemoveConfirmation(false);
+                      setMemberToRemove(null);
+                    }}
+                    className="btn btn-error"
+                    disabled={isRemovingMember}
+                  >
+                    {isRemovingMember ? (
+                      <Loader size={14} className="animate-spin mr-2" />
+                    ) : null}
+                    Remove
+                  </button>
+                </div>
+              </div>
             </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowApplicationModal(false)}
-                className="btn btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitApplication}
-                disabled={isSubmittingApplication}
-                className="btn btn-primary"
-              >
-                {isSubmittingApplication ? (
-                  <>
-                    <Loader size={16} className="mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Application"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Remove Member Confirmation Modal */}
-      {showRemoveConfirmation && memberToRemove && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full p-5 shadow-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-3">Confirm Team Member Removal</h3>
-            <p className="text-gray-600 mb-4">
-              Are you sure you want to remove {memberToRemove.userId?.name || "this member"} from the team?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowRemoveConfirmation(false);
-                  setMemberToRemove(null);
-                }}
-                className="btn btn-outline"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  removeTeamMember(memberToRemove.userId?._id);
-                  setShowRemoveConfirmation(false);
-                  setMemberToRemove(null);
-                }}
-                className="btn btn-error"
-                disabled={isRemovingMember}
-              >
-                {isRemovingMember ? (
-                  <Loader size={14} className="animate-spin mr-2" />
-                ) : null}
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );

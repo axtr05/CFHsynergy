@@ -153,7 +153,7 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 		try {
 			console.log("Saving profile data:", editedData);
 			onSave(editedData, true);
-			setIsEditing(false);
+		setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("Profile saved successfully");
 		} catch (error) {
@@ -168,13 +168,13 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 		switch (getConnectionStatus) {
 			case "connected":
 				return (
-					<button
+						<button
 						className={`${baseClass} bg-gray-200 hover:bg-red-100 text-gray-800 hover:text-red-600 border border-gray-300`}
-						onClick={() => removeConnection(userData._id)}
-					>
+							onClick={() => removeConnection(userData._id)}
+						>
 						<X size={16} className='mr-1.5' />
 						Remove
-					</button>
+						</button>
 				);
 
 			case "pending":
@@ -245,25 +245,25 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 						<div className="inline-block">
 							<img
 								className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white object-cover shadow-md bg-white"
-								src={editedData.profilePicture || userData.profilePicture || "/avatar.png"}
-								alt={userData.name}
-							/>
-							{isEditing && (
+							src={editedData.profilePicture || userData.profilePicture || "/avatar.png"}
+							alt={userData.name}
+						/>
+						{isEditing && (
 								<label className='absolute bottom-2 right-2 bg-white p-2 rounded-full shadow-md cursor-pointer hover:bg-gray-50 z-10'>
 									<Camera size={16} />
-									<input
-										type='file'
-										className='hidden'
-										name='profilePicture'
-										onChange={handleImageChange}
-										accept='image/*'
-									/>
-								</label>
-							)}
+								<input
+									type='file'
+									className='hidden'
+									name='profilePicture'
+									onChange={handleImageChange}
+									accept='image/*'
+								/>
+							</label>
+						)}
 						</div>
 					</div>
+					</div>
 				</div>
-			</div>
 
 			{/* Profile info below profile picture - LinkedIn style */}
 			<div className="px-6 lg:px-10 pt-20 md:pt-24 pb-3">
@@ -271,14 +271,14 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 					<div className="flex-1">
 						{/* Name with verification badge */}
 						<div className="flex items-center gap-1.5 mb-1">
-							{isEditing ? (
-								<input
-									type='text'
-									value={editedData.name ?? userData.name}
-									onChange={(e) => setEditedData({ ...editedData, name: e.target.value })}
+						{isEditing ? (
+							<input
+								type='text'
+								value={editedData.name ?? userData.name}
+								onChange={(e) => setEditedData({ ...editedData, name: e.target.value })}
 									className='text-2xl font-bold border-b border-gray-300 focus:border-primary focus:outline-none py-1 w-full'
-								/>
-							) : (
+							/>
+						) : (
 								<h1 className='text-2xl md:text-3xl font-bold flex items-center'>
 									{userData.name}
 									{userData.isVerified && (
@@ -414,12 +414,12 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 								</div>
 							</div>
 						)}
-						
-						{isOwnProfile && (
+
+					{isOwnProfile && (
 							<div>
-								{isEditing ? (
-									<button
-										onClick={handleSave}
+							{isEditing ? (
+								<button
+									onClick={handleSave}
 										className='bg-primary text-white px-5 py-1.5 rounded-md hover:bg-primary-dark transition duration-300 text-sm font-medium'
 									>
 										Save Profile
