@@ -7,19 +7,84 @@ import cloudinary from "../lib/cloudinary.js";
 
 export const getSuggestedConnections = async (req, res) => {
 	try {
-		const currentUser = await User.findById(req.user._id).select("connections");
+		const currentUser = await User.findById(req.user._id).select("connections userRole");
+		const { role = "default", limit = 6 } = req.query;
 
-		// find users who are not already connected, and also do not recommend our own profile
-		const suggestedUsers = await User.find({
+		// Base query to find users who are not already connected
+		let query = {
 			_id: {
 				$ne: req.user._id,
 				$nin: currentUser.connections,
 			},
-		})
-			.select("name username profilePicture headline")
-			.sort({ createdAt: -1 }); // Sort by newest users first
-
-		res.json(suggestedUsers);
+		};
+		
+		// Role-specific filtering
+		if (role === "founder" && currentUser.userRole === "founder") {
+			// Founders see investors
+			query.userRole = "investor";
+		} else if (role === "investor" && currentUser.userRole === "investor") {
+			// Investors see founders
+			query.userRole = "founder";
+		} else if (role === "job_seeker" && currentUser.userRole === "job_seeker") {
+			// Job seekers see founders
+			query.userRole = "founder";
+		}
+		
+		// Adding second-degree connection recommendations
+		let secondDegreeConnections = [];
+		
+		// Only do this calculation if we have at least one connection
+		if (currentUser.connections && currentUser.connections.length > 0) {
+			// Find all connections of current user's connections
+			const userConnections = await User.find({
+				_id: { $in: currentUser.connections }
+			}).select("connections");
+			
+			// Extract all second-degree connections
+			const allSecondDegreeIds = userConnections.flatMap(u => u.connections || []);
+			
+			// Filter out current user and direct connections
+			const filteredSecondDegreeIds = allSecondDegreeIds.filter(id => 
+				id.toString() !== req.user._id.toString() && 
+				!currentUser.connections.includes(id)
+			);
+			
+			// Get unique IDs only
+			const uniqueSecondDegreeIds = [...new Set(filteredSecondDegreeIds.map(id => id.toString()))];
+			
+			// Find user documents for these second-degree connections
+			if (uniqueSecondDegreeIds.length > 0) {
+				// Apply role filtering to second-degree connections too
+				let secondDegreeQuery = {
+					_id: { $in: uniqueSecondDegreeIds }
+				};
+				
+				if (query.userRole) {
+					secondDegreeQuery.userRole = query.userRole;
+				}
+				
+				secondDegreeConnections = await User.find(secondDegreeQuery)
+					.select("name username profilePicture headline userRole")
+					.limit(Math.min(Number(limit), 6)); // Cap at requested limit or 6
+			}
+		}
+		
+		// Find regular suggestions based on roles
+		const roleSuggestions = await User.find(query)
+			.select("name username profilePicture headline userRole")
+			.sort({ createdAt: -1 }) // Sort by newest users first
+			.limit(Math.min(Number(limit), 6)); // Cap at requested limit or 6
+		
+		// Combine and deduplicate based on user ID
+		const allSuggestions = [...secondDegreeConnections, ...roleSuggestions];
+		const uniqueSuggestions = Array.from(
+			new Map(allSuggestions.map(user => [user._id.toString(), user])).values()
+		);
+		
+		// Return only the requested number of suggestions
+		const finalSuggestions = uniqueSuggestions.slice(0, Math.min(Number(limit), 6));
+		
+		res.json(finalSuggestions);
 	} catch (error) {
 		console.error("Error in getSuggestedConnections controller:", error);
 		res.status(500).json({ message: "Server error" });

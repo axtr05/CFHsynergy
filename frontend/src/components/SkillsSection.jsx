@@ -47,25 +47,25 @@ const SkillsSection = ({ userData, isOwnProfile, onSave }) => {
 			<div className='flex flex-wrap gap-2'>
 				{skills && skills.length > 0 ? (
 					skills.map((skill, index) => (
-						<span
-							key={index}
+					<span
+						key={index}
 							className={`px-3 py-1.5 rounded-md text-sm font-medium ${
 								isEditing 
 									? 'bg-gray-100 text-gray-800 pr-2'
 									: 'bg-primary/10 text-primary'
 							}`}
-						>
-							{skill}
-							{isEditing && (
+					>
+						{skill}
+						{isEditing && (
 								<button 
 									onClick={() => handleDeleteSkill(skill)} 
 									className='ml-2 text-gray-500 hover:text-red-500 transition-colors'
 									aria-label="Remove skill"
 								>
 									<X size={16} />
-								</button>
-							)}
-						</span>
+							</button>
+						)}
+					</span>
 					))
 				) : (
 					<p className="text-gray-500 italic">
@@ -77,23 +77,23 @@ const SkillsSection = ({ userData, isOwnProfile, onSave }) => {
 			{isEditing && (
 				<div className='mt-5 space-y-4'>
 					<div className='flex'>
-						<input
-							type='text'
+					<input
+						type='text'
 							placeholder='Add a skill (e.g., JavaScript, Project Management)'
-							value={newSkill}
-							onChange={(e) => setNewSkill(e.target.value)}
+						value={newSkill}
+						onChange={(e) => setNewSkill(e.target.value)}
 							onKeyPress={handleKeyPress}
 							className='flex-grow p-2.5 border border-gray-300 rounded-l-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all'
-						/>
-						<button
-							onClick={handleAddSkill}
+					/>
+					<button
+						onClick={handleAddSkill}
 							className='bg-primary text-white py-2 px-4 rounded-r-md hover:bg-primary-dark transition duration-300 flex items-center'
 							disabled={!newSkill.trim()}
-						>
+					>
 							<Plus size={18} className="mr-1" />
 							Add
-						</button>
-					</div>
+					</button>
+				</div>
 					
 					<div className="flex justify-end gap-2">
 						<button

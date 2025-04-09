@@ -173,8 +173,8 @@ function App() {
 				onRetry={handleRetry} 
 			/>
 			
-			<Layout>
-				<Routes>
+		<Layout>
+			<Routes>
 					<Route 
 						path='/' 
 						element={
@@ -199,7 +199,7 @@ function App() {
 								: <Navigate to={"/"} />
 						} 
 					/>
-					<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to={"/"} />} />
+				<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to={"/"} />} />
 					<Route 
 						path='/role-selection' 
 						element={<RoleSelectionPage />}
@@ -228,9 +228,9 @@ function App() {
 					
 					{/* Test route for footer visibility */}
 					<Route path='/test' element={<TestPage />} />
-				</Routes>
-				<Toaster />
-			</Layout>
+			</Routes>
+			<Toaster />
+		</Layout>
 		</>
 	);
 }

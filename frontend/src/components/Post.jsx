@@ -38,6 +38,12 @@ const Post = ({ post, displayActions = true, refetchComments }) => {
 	const { data: authUser } = useAuthUser();
 	const [comments, setComments] = useState(post?.comments || []);
 	
+	// Debug log for post content
+	useEffect(() => {
+		console.log('Post received:', post);
+		console.log('Post content:', post?.content);
+	}, [post]);
+	
 	// If post or authUser is undefined, don't render anything
 	if (!post || !authUser) {
 		return null;

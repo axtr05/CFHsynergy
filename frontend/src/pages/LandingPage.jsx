@@ -143,29 +143,7 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* Call to Action */}
-        <section className="py-16 bg-primary text-white w-full">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl font-bold mb-6">Ready to Start Collaborating?</h2>
-            <p className="text-xl mb-8 max-w-2xl mx-auto">
-              Join our community today and start building amazing projects with talented people.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/signup"
-                className="btn bg-white text-primary hover:bg-gray-100 text-lg py-3 px-8 rounded-lg font-medium"
-              >
-                Sign Up Now
-              </Link>
-              <Link
-                to="/login"
-                className="btn btn-outline border-white text-white hover:bg-white hover:text-primary text-lg py-3 px-8 rounded-lg font-medium"
-              >
-                Sign In
-              </Link>
-            </div>
-          </div>
-        </section>
+        
       </div>
       <Footer />
     </div>

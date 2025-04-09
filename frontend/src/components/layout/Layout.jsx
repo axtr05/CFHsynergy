@@ -26,11 +26,11 @@ const Layout = ({ children }) => {
 		<div className="flex flex-col min-h-screen">
 			<Navbar />
 			{isLandingPage ? (
-				// Full width main content for landing page
-				<main className="flex-grow">{children}</main>
+				// Full width main content for landing page with small margin
+				<main className="flex-grow mt-2">{children}</main>
 			) : (
-				// Width-constrained main content for other pages
-				<main className="flex-grow max-w-7xl mx-auto px-4 py-6 w-full">{children}</main>
+				// Width-constrained main content for other pages with margin-top
+				<main className="flex-grow max-w-7xl mx-auto px-4 py-6 mt-4 w-full">{children}</main>
 			)}
 			{showProfileIndicator && <ProfileCompletionIndicator />}
 			{!isLandingPage && <Footer />}

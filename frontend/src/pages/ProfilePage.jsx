@@ -137,7 +137,7 @@ const ProfilePage = () => {
 		},
 		onSuccess: (data) => {
 			if (!data?._suppressToast) {
-				toast.success("Profile updated successfully");
+			toast.success("Profile updated successfully");
 			}
 			
 			// Close profile prompt if it was open
@@ -207,7 +207,7 @@ const ProfilePage = () => {
 				...updatedData,
 				_suppressToast: isHeaderToast
 			});
-		} catch (error) {
+				} catch (error) {
 			console.error("Profile update error:", error);
 			if (!isHeaderToast) {
 				toast.error(error.response?.data?.message || 'Failed to update profile');
@@ -218,7 +218,7 @@ const ProfilePage = () => {
 	const handleInvestmentRangeUpdate = async () => {
 		if (investmentRange.min > investmentRange.max) {
 			toast.error('Minimum investment cannot be greater than maximum investment');
-			return;
+					return;
 		}
 		
 		const profileData = {
@@ -369,17 +369,17 @@ const ProfilePage = () => {
 				</div>
 			)}
 			
-			{isOwnProfile && (
+					{isOwnProfile && (
 				<div className="p-4 md:p-6">
 					<div className="bg-white shadow-md rounded-xl p-6">
 						<h2 className="text-xl font-semibold mb-4">Account Actions</h2>
-						<button
-							onClick={handleDelete}
+							<button
+								onClick={handleDelete}
 							className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200 font-medium"
-						>
-							Delete Account
-						</button>
-					</div>
+							>
+								Delete Account
+							</button>
+						</div>
 				</div>
 			)}
 
@@ -395,12 +395,12 @@ const ProfilePage = () => {
 								<label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
 									Enter your password to confirm
 								</label>
-								<input
+						<input
 									id="password"
-									type="password"
+							type="password"
 									placeholder="Your password"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
 									className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
 									onKeyPress={(e) => {
 										if (e.key === 'Enter') {
@@ -408,25 +408,25 @@ const ProfilePage = () => {
 											handleConfirmDelete();
 										}
 									}}
-								/>
-								{deleteError && (
+						/>
+						{deleteError && (
 									<p className="text-red-500 text-sm mt-1">{deleteError}</p>
-								)}
+						)}
 							</div>
 							
 							<div className="flex justify-end gap-3 mt-6">
-								<button
-									onClick={() => setShowDeleteModal(false)}
+							<button
+								onClick={() => setShowDeleteModal(false)}
 									className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium"
-								>
-									Cancel
-								</button>
-								<button
-									onClick={handleConfirmDelete}
+							>
+								Cancel
+							</button>
+							<button
+								onClick={handleConfirmDelete}
 									className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium"
-								>
-									Delete Profile
-								</button>
+							>
+								Delete Profile
+							</button>
 							</div>
 						</div>
 					</div>
