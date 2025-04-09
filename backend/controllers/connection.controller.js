@@ -32,8 +32,18 @@ export const sendConnectionRequest = async (req, res) => {
 
 		await newRequest.save();
 
+		// Create a notification for the recipient about the connection request
+		const notification = new Notification({
+			recipient: userId,
+			sender: senderId,
+			type: "connection_request",
+		});
+
+		await notification.save();
+
 		res.status(201).json({ message: "Connection request sent successfully" });
 	} catch (error) {
+		console.error("Error in sendConnectionRequest:", error);
 		res.status(500).json({ message: "Server error" });
 	}
 };
@@ -101,8 +111,8 @@ export const acceptConnectionRequest = async (req, res) => {
 
 		const notification = new Notification({
 			recipient: request.sender._id,
-			type: "connectionAccepted",
-			relatedUser: userId,
+			sender: userId,
+			type: "connection_accepted",
 		});
 
 		await notification.save();
@@ -214,14 +224,14 @@ export const getConnectionStatus = async (req, res) => {
 
 		if (pendingRequest) {
 			if (pendingRequest.sender.toString() === currentUserId.toString()) {
-				return res.json({ status: "pending" });
+				return res.json({ status: "pending_sender" });
 			} else {
-				return res.json({ status: "received", requestId: pendingRequest._id });
+				return res.json({ status: "pending_recipient", requestId: pendingRequest._id });
 			}
 		}
 
 		// if no connection or pending req found
-		res.json({ status: "not_connected" });
+		res.json({ status: "none" });
 	} catch (error) {
 		console.error("Error in getConnectionStatus controller:", error);
 		res.status(500).json({ message: "Server error" });
@@ -280,6 +290,39 @@ export const getMutualConnections = async (req, res) => {
 		res.json(mutualConnections);
 	} catch (error) {
 		console.error("Error in getMutualConnections controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export const withdrawConnectionRequest = async (req, res) => {
+	try {
+		const { userId } = req.params;
+		const senderId = req.user._id;
+
+		// Find the pending request
+		const pendingRequest = await ConnectionRequest.findOne({
+			sender: senderId,
+			recipient: userId,
+			status: "pending",
+		});
+
+		if (!pendingRequest) {
+			return res.status(404).json({ message: "No pending connection request found" });
+		}
+
+		// Delete the request
+		await ConnectionRequest.deleteOne({ _id: pendingRequest._id });
+
+		// Delete any associated notifications
+		await Notification.deleteMany({
+			type: "connection_request",
+			sender: senderId,
+			recipient: userId
+		});
+
+		res.json({ message: "Connection request withdrawn successfully" });
+	} catch (error) {
+		console.error("Error in withdrawConnectionRequest:", error);
 		res.status(500).json({ message: "Server error" });
 	}
 };

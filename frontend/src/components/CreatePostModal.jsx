@@ -18,43 +18,38 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
     mutationFn: async (data) => {
       const formData = new FormData();
       
-      // Ensure content field is properly set
-      if (data.content) {
-        formData.append('content', data.content);
-      }
+      // Ensure content field is always set, even if empty
+      formData.append('content', data.content || '');
       
-      if (data.mediaType) {
-        if (data.mediaType === 'photo' && data.mediaFiles && data.mediaFiles.length > 0) {
-          // For photo uploads, use 'images' field as expected by the backend
-          data.mediaFiles.forEach(file => {
-            formData.append('images', file);
+      // Log what we're about to send for debugging
+      console.log('Preparing to send post with content:', data.content);
+      console.log('Media type:', data.mediaType);
+      
+      // Handle media based on type
+      if (data.mediaType === 'photo' && data.mediaFiles && data.mediaFiles.length > 0) {
+        console.log('Adding images to post:', data.mediaFiles.length);
+        
+        // Convert image files to base64 strings
+        for (const file of data.mediaFiles) {
+          const reader = new FileReader();
+          const imagePromise = new Promise((resolve) => {
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
           });
-        } 
-        else if (data.mediaType === 'video' && data.mediaFiles && data.mediaFiles.length > 0) {
-          // For video uploads - handle as needed
-          data.mediaFiles.forEach(file => {
-            formData.append('video', file);
-          });
-        }
-        else if (data.mediaType === 'poll') {
-          // For polls
-          formData.append('pollOptions', JSON.stringify(data.pollOptions));
-        }
-        else if (data.mediaType === 'document' && data.mediaFiles && data.mediaFiles.length > 0) {
-          // For document uploads
-          data.mediaFiles.forEach(file => {
-            formData.append('documents', file);
-          });
+          
+          const base64Image = await imagePromise;
+          formData.append('images', base64Image);
         }
       }
-      
-      // Log form data for debugging
-      console.log('Sending post with content:', data.content);
       
       // Make request to server
-      const response = await axiosInstance.post('/posts/create', formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      console.log('Sending post data...');
+      const response = await axiosInstance.post('/posts/create', 
+        // Use regular JSON for text-only posts, formData for posts with images
+        data.mediaFiles && data.mediaFiles.length > 0 
+          ? Object.fromEntries(formData)
+          : { content: data.content || '' }
+      );
       
       console.log('Post created response:', response.data);
       return response.data;
@@ -66,7 +61,8 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
       onClose();
     },
     onError: (error) => {
-      toast.error(error.response?.data?.error || 'Failed to create post');
+      console.error('Post creation error:', error);
+      toast.error(error.response?.data?.message || error.response?.data?.error || 'Failed to create post');
     },
   });
 
@@ -84,19 +80,18 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
     
     // Check if there's valid content to post
     if (!trimmedContent && !mediaFiles.length && mediaType !== 'poll') {
+      toast.error("Please add some content to your post");
       return;
     }
     
-    // For text-only posts with no media
-    if (!mediaType) {
+    // Send post data based on media type
+    if (mediaType === 'photo' && mediaFiles.length > 0) {
       createPost({ 
-        content: trimmedContent
+        content: trimmedContent,
+        mediaType,
+        mediaFiles
       });
-      return;
-    }
-    
-    // Validate poll options if it's a poll
-    if (mediaType === 'poll') {
+    } else if (mediaType === 'poll') {
       const validOptions = pollOptions.filter(option => option.trim() !== '');
       if (validOptions.length < 2) {
         toast.error('Please provide at least 2 poll options');
@@ -109,10 +104,9 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
         pollOptions: validOptions 
       });
     } else {
+      // Text-only post
       createPost({ 
-        content: trimmedContent, 
-        mediaType, 
-        mediaFiles
+        content: trimmedContent
       });
     }
   };

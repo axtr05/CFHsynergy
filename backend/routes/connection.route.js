@@ -10,11 +10,13 @@ import {
 	rejectConnectionRequest,
 	removeConnection,
 	sendConnectionRequest,
+	withdrawConnectionRequest,
 } from "../controllers/connection.controller.js";
 
 const router = express.Router();
 
 router.post("/request/:userId", protectRoute, sendConnectionRequest);
+router.delete("/request/:userId", protectRoute, withdrawConnectionRequest);
 router.put("/accept/:requestId", protectRoute, acceptConnectionRequest);
 router.put("/reject/:requestId", protectRoute, rejectConnectionRequest);
 // Get all connection requests for the current user

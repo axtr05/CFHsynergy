@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const postSchema = new mongoose.Schema(
 	{
 		author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-		content: { type: String },
+		content: { type: String, required: true },
 		images: [{ 
 			url: { type: String },
 			cloudinaryId: { type: String },

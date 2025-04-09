@@ -105,11 +105,39 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 		},
 	});
 
-	const getConnectionStatus = useMemo(() => {
-		if (isConnected) return "connected";
-		if (!isConnected) return "not_connected";
-		return connectionStatus?.data?.status;
-	}, [isConnected, connectionStatus]);
+	const { mutate: withdrawRequest } = useMutation({
+		mutationFn: () => axiosInstance.delete(`/connections/request/${userData._id}`),
+		onSuccess: () => {
+			toast.success("Connection request withdrawn");
+			refetchConnectionStatus();
+			queryClient.invalidateQueries(["connectionRequests"]);
+			queryClient.invalidateQueries(["recommendedUsers"]);
+		},
+		onError: (error) => {
+			toast.error(error.response?.data?.error || "An error occurred");
+		},
+	});
+
+	// Should only show mutual connections if the user is not the profile owner
+	const showMutualConnections = useMemo(() => {
+		return !isOwnProfile && mutualConnectionsCount > 0;
+	}, [isOwnProfile, mutualConnectionsCount]);
+	
+	// Should only show the current institution if it exists
+	const showCurrentInstitution = useMemo(() => {
+		return userData?.experience?.length > 0;
+	}, [userData?.experience]);
+
+	// Get current institution
+	const getCurrentInstitution = () => {
+		if (!userData.experience || userData.experience.length === 0) {
+			return null;
+		}
+	
+		// Find the most recent experience that doesn't have an end date (current)
+		const currentExperience = userData.experience.find(exp => !exp.endDate);
+		return currentExperience || userData.experience[0]; // Return the most recent if none is current
+	};
 
 	const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
 		setCroppedAreaPixels(croppedAreaPixels);
@@ -165,43 +193,67 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 
 	const renderConnectionButton = () => {
 		const baseClass = "py-1.5 px-4 rounded-md transition duration-300 flex items-center justify-center font-medium text-sm";
-		switch (getConnectionStatus) {
+		
+		if (!connectionStatus || !connectionStatus.data) {
+			return (
+				<button 
+					onClick={() => sendConnectionRequest(userData._id)}
+					className={`${baseClass} bg-primary hover:bg-primary-dark text-white`}
+				>
+					<UserPlus size={16} className='mr-1.5' />
+					Connect
+				</button>
+			);
+		}
+		
+		const status = connectionStatus.data.status;
+		const requestId = connectionStatus.data.requestId;
+		
+		switch (status) {
 			case "connected":
 				return (
-						<button
+					<button
 						className={`${baseClass} bg-gray-200 hover:bg-red-100 text-gray-800 hover:text-red-600 border border-gray-300`}
-							onClick={() => removeConnection(userData._id)}
-						>
-						<X size={16} className='mr-1.5' />
-						Remove
-						</button>
+						onClick={() => removeConnection(userData._id)}
+					>
+						<UserCheck size={16} className='mr-1.5' />
+						Connected
+					</button>
 				);
 
-			case "pending":
+			case "pending_sender":
 				return (
-					<button className={`${baseClass} bg-gray-200 hover:bg-amber-100 text-gray-800 border border-gray-300`}>
+					<button 
+						onClick={() => withdrawRequest()}
+						className={`${baseClass} bg-blue-50 text-blue-700 hover:bg-blue-100 border border-gray-300`}
+						title="Click to withdraw request"
+					>
 						<Clock size={16} className='mr-1.5' />
 						Pending
 					</button>
 				);
 
-			case "received":
+			case "pending_recipient":
 				return (
 					<div className='flex gap-2 justify-center'>
 						<button
-							onClick={() => acceptRequest(connectionStatus.data.requestId)}
-							className={`${baseClass} bg-gray-200 hover:bg-green-100 text-gray-800 hover:text-green-600 border border-gray-300`}
+							onClick={() => acceptRequest(requestId)}
+							className={`${baseClass} bg-green-50 hover:bg-green-100 text-green-700 hover:text-green-800 border border-gray-300`}
 						>
+							<Check size={16} className='mr-1.5' />
 							Accept
 						</button>
 						<button
-							onClick={() => rejectRequest(connectionStatus.data.requestId)}
-							className={`${baseClass} bg-gray-200 hover:bg-red-100 text-gray-800 hover:text-red-600 border border-gray-300`}
+							onClick={() => rejectRequest(requestId)}
+							className={`${baseClass} bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 border border-gray-300`}
 						>
+							<X size={16} className='mr-1.5' />
 							Reject
 						</button>
 					</div>
 				);
+			
+			case "none":
 			default:
 				return (
 					<button
@@ -329,15 +381,15 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 									to={`/connections/${userData.username}`} 
 									className='text-blue-600 text-sm font-medium hover:underline'
 								>
-									Connections
+									{userData.connections?.length || 0} Connections
 								</Link>
 							) : (
 								<div className='text-blue-600 text-sm font-medium'>
-									Connections
+									{userData.connections?.length || 0} Connections
 								</div>
 							)}
 							
-							{!isOwnProfile && mutualConnectionsCount > 0 && (
+							{showMutualConnections && (
 								<div className="flex items-center">
 									<div className="flex -space-x-2 mr-2">
 										<img src="/avatar.png" alt="Mutual" className="w-6 h-6 rounded-full border border-white" />
@@ -363,7 +415,7 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 					
 					{/* Organization/Institution on the right side */}
 					<div className="mt-2 md:mt-0 md:ml-auto md:pl-4 flex flex-col items-end">
-						{(userData.organization || userData.club) && (
+						{showCurrentInstitution && (
 							<div className="flex items-center mb-3">
 								{isEditing ? (
 									<label className="cursor-pointer mr-2">
@@ -403,14 +455,13 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 									</label>
 								) : (
 									<img 
-										src={userData.orgLogo || "/logo.svg"} 
+										src={getCurrentInstitution()?.logo || "/logo.svg"} 
 										alt="Organization" 
 										className="w-12 h-12 mr-2 object-contain rounded-full bg-gray-50 p-1" 
 									/>
 								)}
 								<div className="ml-2 text-sm">
-									<p className="font-medium">{userData.organization}</p>
-									<p className="text-gray-600">{userData.club}</p>
+									<p className="font-medium">{getCurrentInstitution()?.company}</p>
 								</div>
 							</div>
 						)}

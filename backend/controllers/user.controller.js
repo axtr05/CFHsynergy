@@ -71,7 +71,7 @@ export const getSuggestedConnections = async (req, res) => {
 		
 		// Find regular suggestions based on roles
 		const roleSuggestions = await User.find(query)
-			.select("name username profilePicture headline userRole")
+			.select("name username profilePicture headline userRole connections")
 			.sort({ createdAt: -1 }) // Sort by newest users first
 			.limit(Math.min(Number(limit), 6)); // Cap at requested limit or 6
 		

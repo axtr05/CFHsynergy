@@ -18,7 +18,7 @@ const HomePage = () => {
 		queryFn: async () => {
 			// Different endpoint based on user role
 			const roleParam = authUser?.userRole || "default";
-			const res = await axiosInstance.get(`/users/suggestions?role=${roleParam}&limit=6`);
+			const res = await axiosInstance.get(`/users/suggestions?role=${roleParam}&limit=10`);
 			return res.data;
 		},
 		enabled: !!authUser
@@ -28,6 +28,8 @@ const HomePage = () => {
 		queryKey: ["posts"],
 		queryFn: async () => {
 			const res = await axiosInstance.get("/posts");
+			// Log post data to verify content
+			console.log("Posts from API:", res.data);
 			return res.data;
 		},
 		enabled: !!authUser
@@ -45,6 +47,26 @@ const HomePage = () => {
 	}
 
 	const isLoading = isPostsLoading;
+	
+	// Sort users by role priority: founders and investors first, then job seekers
+	const sortRecommendedUsers = (users) => {
+		if (!users) return [];
+		
+		// Separate users by role
+		const founders = users.filter(user => user.userRole === "founder");
+		const investors = users.filter(user => user.userRole === "investor");
+		const jobSeekers = users.filter(user => user.userRole === "job_seeker");
+		const others = users.filter(user => 
+			user.userRole !== "founder" && 
+			user.userRole !== "investor" && 
+			user.userRole !== "job_seeker"
+		);
+		
+		// Combine in priority order
+		return [...founders, ...investors, ...jobSeekers, ...others].slice(0, 5);
+	};
+	
+	const sortedRecommendedUsers = sortRecommendedUsers(recommendedUsers);
 
 	// Determine the title and icon based on user role
 	const getRecommendationTitle = () => {
@@ -98,9 +120,12 @@ const HomePage = () => {
 						</div>
 					) : (
 						<>
-							{posts?.map((post) => (
-								<Post key={post._id} post={post} />
-							))}
+							{posts?.map((post) => {
+								console.log("Rendering post:", post._id, "with content:", post.content);
+								return (
+									<Post key={post._id} post={post} />
+								);
+							})}
 
 							{posts?.length === 0 && (
 								<div className='bg-white dark:bg-secondary rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-8 text-center'>
@@ -121,7 +146,7 @@ const HomePage = () => {
 					)}
 				</div>
 
-				{recommendedUsers?.length > 0 && (
+				{sortedRecommendedUsers?.length > 0 && (
 					<div className='col-span-1 lg:col-span-1 hidden lg:block'>
 						<div className='bg-white dark:bg-secondary rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden'>
 							{/* Header with gradient background */}
@@ -143,10 +168,10 @@ const HomePage = () => {
 									</div>
 								) : (
 									<div className="space-y-4">
-										{recommendedUsers?.slice(0, 6).map((user, index) => (
+										{sortedRecommendedUsers.map((user, index) => (
 											<div key={user._id} className="transform transition-all duration-200 hover:scale-[1.02]">
 												<RecommendedUser user={user} />
-												{index < recommendedUsers.length - 1 && (
+												{index < sortedRecommendedUsers.length - 1 && (
 													<div className="h-px bg-gray-100 dark:bg-gray-700 my-4" />
 												)}
 											</div>
@@ -158,7 +183,7 @@ const HomePage = () => {
 							{/* Footer with view all link */}
 							<div className="border-t border-gray-100 dark:border-gray-700 p-4">
 								<button 
-									onClick={() => navigate('/network')}
+									onClick={() => navigate('/recommendations')}
 									className="w-full flex items-center justify-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
 								>
 									<Sparkles size={16} />

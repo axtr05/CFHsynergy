@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Image, Video, FileText, BarChart3 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
+import { toast } from "react-hot-toast";
 
 const PostCreation = ({ user }) => {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [initialMediaType, setInitialMediaType] = useState(null);
+	const [content, setContent] = useState("");
+	const [selectedImages, setSelectedImages] = useState([]);
 
 	// If the user object is undefined or not fully loaded, don't render the component
 	if (!user) {
@@ -19,6 +22,18 @@ const PostCreation = ({ user }) => {
 	const closeModal = () => {
 		setIsModalOpen(false);
 		setInitialMediaType(null);
+	};
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		if (!content.trim() && !selectedImages.length) {
+			toast.error("Please add some content or an image to your post");
+			return;
+		}
+		
+		console.log("Submitting post with content:", content);
+
+		// Continue with existing logic
 	};
 
 	return (

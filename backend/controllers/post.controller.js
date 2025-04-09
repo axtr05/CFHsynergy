@@ -4,12 +4,29 @@ import Notification from "../models/notification.model.js";
 
 export const getFeedPosts = async (req, res) => {
 	try {
-		const posts = await Post.find({ author: { $in: [...req.user.connections, req.user._id] } })
+		// Get all posts, not just from connections
+		const posts = await Post.find()
 			.populate("author", "name username profilePicture headline")
 			.populate("comments.user", "name profilePicture")
 			.sort({ createdAt: -1 });
 
-		res.status(200).json(posts);
+		// Debug posts and check for content
+		console.log(`Found ${posts.length} posts`);
+		posts.forEach((post, index) => {
+			console.log(`Post ${index} - ID: ${post._id}, Has content: ${!!post.content}, Content: "${post.content}"`);
+		});
+
+		// Convert to plain objects to ensure all fields are serialized
+		const serializedPosts = posts.map(post => {
+			const plainPost = post.toObject();
+			// Ensure content exists
+			if (plainPost.content === undefined) {
+				plainPost.content = "";
+			}
+			return plainPost;
+		});
+
+		res.status(200).json(serializedPosts);
 	} catch (error) {
 		console.error("Error in getFeedPosts controller:", error);
 		res.status(500).json({ message: "Server error" });
@@ -18,113 +35,87 @@ export const getFeedPosts = async (req, res) => {
 
 export const createPost = async (req, res) => {
 	try {
-		const { content, images, aspectRatio } = req.body;
+		// Log the incoming request to understand what's being received
+		console.log("Create Post request received");
+		console.log("Request body keys:", Object.keys(req.body));
+		
+		const { content, images } = req.body;
+		
+		// Create basic post data with content
 		let newPost = {
 			author: req.user._id,
-			content,
+			content: content || "", // Ensure content is never undefined
 			images: []
 		};
 
-		// Handle multiple images
-		if (images && images.length > 0) {
+		// Process images if they exist
+		if (images) {
 			try {
-				// Process each image
-				for (const imageData of images) {
-					// Upload to Cloudinary with transformation to maintain aspect ratio
-					let uploadOptions = { folder: "cfh-synergy/posts" };
+				// Handle both array and single image cases
+				const imagesToProcess = Array.isArray(images) ? images : [images];
+				
+				for (const imageData of imagesToProcess) {
+					// Skip if no valid image data
+					if (!imageData) continue;
 					
-					// Add transformation options based on aspect ratio
-					if (aspectRatio) {
-						switch (aspectRatio) {
-							case "1:1": // Square
-								uploadOptions.transformation = [
-									{ width: 1080, height: 1080, crop: "fit" }
-								];
-								break;
-							case "1.91:1": // Landscape
-								uploadOptions.transformation = [
-									{ width: 1080, height: 566, crop: "fit" }
-								];
-								break;
-							case "4:5": // Portrait
-								uploadOptions.transformation = [
-									{ width: 1080, height: 1350, crop: "fit" }
-								];
-								break;
+					// Upload to Cloudinary
+					console.log("Uploading image to Cloudinary...");
+					const uploadOptions = { folder: "cfh-synergy/posts" };
+					
+					try {
+						const uploadResult = await cloudinary.uploader.upload(imageData, uploadOptions);
+						
+						// Add to images array
+						newPost.images.push({
+							url: uploadResult.secure_url,
+							cloudinaryId: uploadResult.public_id,
+							aspectRatio: "1:1" // Default aspect ratio
+						});
+						
+						// For backward compatibility
+						if (!newPost.image) {
+							newPost.image = uploadResult.secure_url;
+							newPost.cloudinaryId = uploadResult.public_id;
 						}
-					}
-					
-					const uploadResult = await cloudinary.uploader.upload(imageData, uploadOptions);
-					
-					// Add to images array
-					newPost.images.push({
-						url: uploadResult.secure_url,
-						cloudinaryId: uploadResult.public_id,
-						aspectRatio: aspectRatio || "1:1"
-					});
-				}
-			} catch (uploadError) {
-				console.error("Error uploading images:", uploadError);
-				return res.status(500).json({ 
-					message: "Error uploading images",
-					error: uploadError.message 
-				});
-			}
-		} 
-		// Handle single image for backward compatibility
-		else if (req.body.image) {
-			try {
-				// Upload to Cloudinary
-				const uploadOptions = { folder: "cfh-synergy/posts" };
-				
-				// Add transformation options based on aspect ratio
-				if (aspectRatio) {
-					switch (aspectRatio) {
-						case "1:1": // Square
-							uploadOptions.transformation = [
-								{ width: 1080, height: 1080, crop: "fit" }
-							];
-							break;
-						case "1.91:1": // Landscape
-							uploadOptions.transformation = [
-								{ width: 1080, height: 566, crop: "fit" }
-							];
-							break;
-						case "4:5": // Portrait
-							uploadOptions.transformation = [
-								{ width: 1080, height: 1350, crop: "fit" }
-							];
-							break;
+						
+						console.log("Image uploaded successfully:", uploadResult.secure_url);
+					} catch (cloudinaryError) {
+						console.error("Cloudinary upload error:", cloudinaryError);
+						// Continue with the rest of the post even if one image fails
 					}
 				}
-				
-				const uploadResult = await cloudinary.uploader.upload(req.body.image, uploadOptions);
-				
-				// Add to both images array and legacy image field
-				newPost.images.push({
-					url: uploadResult.secure_url,
-					cloudinaryId: uploadResult.public_id,
-					aspectRatio: aspectRatio || "1:1"
-				});
-				newPost.image = uploadResult.secure_url;
-				newPost.cloudinaryId = uploadResult.public_id;
 			} catch (uploadError) {
-				console.error("Error uploading image:", uploadError);
-				return res.status(500).json({ 
-					message: "Error uploading image",
-					error: uploadError.message 
-				});
+				console.error("Error processing images:", uploadError);
+				// Continue with post creation without images
 			}
 		}
 
+		// Create and save the post
+		console.log("Creating post with data:", {
+			...newPost,
+			content: newPost.content,
+			imageCount: newPost.images.length
+		});
+		
 		const postDoc = new Post(newPost);
 		await postDoc.save();
 		await postDoc.populate('author', 'name username profilePicture headline');
 		
-		res.status(201).json(postDoc);
+		// Serialize the post to ensure all fields are present
+		const serializedPost = postDoc.toObject();
+		if (serializedPost.content === undefined) {
+			serializedPost.content = "";
+		}
+		
+		console.log("Post created successfully with ID:", serializedPost._id);
+		res.status(201).json(serializedPost);
 	} catch (error) {
 		console.error("Error in createPost controller:", error);
-		res.status(500).json({ message: "Server error" });
+		res.status(500).json({ 
+			message: "Failed to create post", 
+			error: error.message,
+			stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+		});
 	}
 };
 
@@ -179,7 +170,18 @@ export const getPostById = async (req, res) => {
 			.populate("author", "name username profilePicture headline")
 			.populate("comments.user", "name profilePicture username headline");
 
-		res.status(200).json(post);
+		if (!post) {
+			return res.status(404).json({ message: "Post not found" });
+		}
+
+		// Convert to plain object to ensure all fields are serialized
+		const serializedPost = post.toObject();
+		// Ensure content exists
+		if (serializedPost.content === undefined) {
+			serializedPost.content = "";
+		}
+
+		res.status(200).json(serializedPost);
 	} catch (error) {
 		console.error("Error in getPostById controller:", error);
 		res.status(500).json({ message: "Server error" });
@@ -254,15 +256,22 @@ export const likePost = async (req, res) => {
 export const getPostsByUser = async (req, res) => {
 	try {
 		const userId = req.params.userId;
-		const limit = parseInt(req.query.limit) || 10; // Default to 10 posts if no limit is provided
-		
 		const posts = await Post.find({ author: userId })
 			.populate("author", "name username profilePicture headline")
-			.populate("comments.user", "name profilePicture username")
-			.sort({ createdAt: -1 })
-			.limit(limit);
+			.populate("comments.user", "name profilePicture")
+			.sort({ createdAt: -1 });
 
-		res.status(200).json(posts);
+		// Convert to plain objects to ensure all fields are serialized
+		const serializedPosts = posts.map(post => {
+			const plainPost = post.toObject();
+			// Ensure content exists
+			if (plainPost.content === undefined) {
+				plainPost.content = "";
+			}
+			return plainPost;
+		});
+
+		res.status(200).json(serializedPosts);
 	} catch (error) {
 		console.error("Error in getPostsByUser controller:", error);
 		res.status(500).json({ message: "Server error" });

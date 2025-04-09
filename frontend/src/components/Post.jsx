@@ -25,8 +25,6 @@ const MAX_CONTENT_LENGTH = 150; // Number of characters to show before "See more
 const Post = ({ post, displayActions = true, refetchComments }) => {
 	const { postId } = useParams();
 	const [activeImageIndex, setActiveImageIndex] = useState(0);
-	const [content, setContent] = useState(post?.content || "");
-	const [isEditing, setIsEditing] = useState(false);
 	const [commentText, setCommentText] = useState("");
 	const [showComments, setShowComments] = useState(false);
 	const [showOptions, setShowOptions] = useState(false);
@@ -37,12 +35,6 @@ const Post = ({ post, displayActions = true, refetchComments }) => {
 	const queryClient = useQueryClient();
 	const { data: authUser } = useAuthUser();
 	const [comments, setComments] = useState(post?.comments || []);
-	
-	// Debug log for post content
-	useEffect(() => {
-		console.log('Post received:', post);
-		console.log('Post content:', post?.content);
-	}, [post]);
 	
 	// If post or authUser is undefined, don't render anything
 	if (!post || !authUser) {
@@ -202,7 +194,7 @@ const Post = ({ post, displayActions = true, refetchComments }) => {
 				
 				{/* Post content with "See more" option */}
 				<div className='mb-3 text-gray-800 whitespace-pre-wrap'>
-					{displayContent}
+					{post.content !== undefined && post.content !== null ? displayContent : <span className="text-gray-400">No content</span>}
 					{shouldTruncate && (
 						<button 
 							onClick={() => setIsExpanded(!isExpanded)} 
