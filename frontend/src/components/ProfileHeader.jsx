@@ -415,58 +415,48 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 					
 					{/* Organization/Institution on the right side */}
 					<div className="mt-2 md:mt-0 md:ml-auto md:pl-4 flex flex-col items-end">
-						{showCurrentInstitution && (
-							<div className="flex items-center mb-3">
-								{isEditing ? (
-									<label className="cursor-pointer mr-2">
-										<div className="w-12 h-12 border border-gray-300 rounded-full flex items-center justify-center overflow-hidden bg-gray-50">
-											{editedData.orgLogo || userData.orgLogo ? (
+						{!isEditing && (
+							<div className="text-right mb-3">
+								{userData.organization && (
+									<div className="flex items-center justify-end mb-2">
+										{userData.orgLogo ? (
+											<div className="w-12 h-12 mr-2 overflow-hidden bg-white rounded-lg border border-gray-100">
 												<img 
-													src={editedData.orgLogo || userData.orgLogo} 
-													alt="Logo" 
-													className="w-full h-full object-contain" 
+													src={userData.orgLogo} 
+													alt={userData.organization}
+													className="w-full h-full object-contain"
 												/>
-											) : (
-												<Camera size={16} className="text-gray-400" />
+											</div>
+										) : (
+											<div className="w-12 h-12 mr-2 bg-gray-100 rounded-full flex items-center justify-center">
+												<Briefcase size={18} className="text-gray-600" />
+											</div>
+										)}
+										<div className="text-left">
+											<span className="font-medium text-base text-gray-800 block leading-tight">{userData.organization}</span>
+											{userData.club && (
+												<span className="text-sm text-gray-600 block">
+													<span className="inline-flex items-center">
+														<Users size={12} className="text-gray-500 mr-1" />
+														{userData.club}
+													</span>
+												</span>
 											)}
 										</div>
-										<input
-											type="file"
-											className="hidden"
-											accept="image/*"
-											onChange={(e) => {
-												const file = e.target.files[0];
-												if (file) {
-													toast.loading("Uploading logo...");
-													const reader = new FileReader();
-													reader.onloadend = () => {
-														setEditedData({ ...editedData, orgLogo: reader.result });
-														toast.dismiss();
-														toast.success("Logo ready for upload");
-													};
-													reader.onerror = () => {
-														toast.dismiss();
-														toast.error("Failed to process logo");
-													};
-													reader.readAsDataURL(file);
-												}
-											}}
-										/>
-									</label>
-								) : (
-									<img 
-										src={getCurrentInstitution()?.logo || "/logo.svg"} 
-										alt="Organization" 
-										className="w-12 h-12 mr-2 object-contain rounded-full bg-gray-50 p-1" 
-									/>
+									</div>
 								)}
-								<div className="ml-2 text-sm">
-									<p className="font-medium">{getCurrentInstitution()?.company}</p>
-								</div>
+								{!userData.organization && userData.club && (
+									<div className="flex items-center justify-end">
+										<div className="w-12 h-12 mr-2 bg-gray-100 rounded-full flex items-center justify-center">
+											<Users size={18} className="text-gray-600" />
+										</div>
+										<span className="text-base font-medium text-gray-700">{userData.club}</span>
+									</div>
+								)}
 							</div>
 						)}
 
-					{isOwnProfile && (
+						{isOwnProfile && (
 							<div>
 							{isEditing ? (
 								<button

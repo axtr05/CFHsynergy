@@ -170,7 +170,7 @@ const ProjectDetailPage = () => {
 
     // Check if user has already applied for this specific role
     const existingApplication = project.applications?.find(
-      app => app.userId._id === user._id && app.roleTitle === role.title
+      app => app.userId && app.userId._id === user._id && app.roleTitle === role.title
     );
 
     if (existingApplication && existingApplication.status === "rejected") {
@@ -205,7 +205,7 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     if (user && project?.applications) {
       const acceptedApplication = project.applications.find(
-        app => app.userId._id === user._id && app.status === "accepted"
+        app => app.userId && app.userId._id === user._id && app.status === "accepted"
       );
       
       if (acceptedApplication && !hasShownAcceptanceMessage) {
@@ -218,7 +218,7 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     if (user && project?.applications) {
       const rejectedApplication = project.applications.find(
-        app => app.userId._id === user._id && app.status === "rejected"
+        app => app.userId && app.userId._id === user._id && app.status === "rejected"
       );
       
       if (rejectedApplication && !hasShownRejectionMessage) {
@@ -264,7 +264,7 @@ const ProjectDetailPage = () => {
     
     // Check for role-specific application status
     const userApplication = user && project?.applications?.find(
-      app => app?.userId?._id === user?._id && app?.roleTitle === role?.title
+      app => app?.userId && app.userId._id === user._id && app?.roleTitle === role?.title
     );
     
     if (userApplication) {
@@ -758,38 +758,38 @@ const ProjectDetailPage = () => {
                         
                         {/* Application status for this specific role */}
                         {user && project.applications?.some(app => 
-                          app.userId._id === user._id && 
+                          app.userId && app.userId._id === user._id && 
                           app.roleTitle === role.title && 
                           ['pending', 'accepted', 'rejected'].includes(app.status)
                         ) && (
                           <div className={`mb-3 p-2 rounded-lg border ${
                             project.applications.find(app => 
-                              app.userId._id === user._id && 
+                              app.userId && app.userId._id === user._id && 
                               app.roleTitle === role.title
                             ).status === 'pending' ? 'bg-blue-50 border-blue-200' : 
                             project.applications.find(app => 
-                              app.userId._id === user._id && 
+                              app.userId && app.userId._id === user._id && 
                               app.roleTitle === role.title
                             ).status === 'accepted' ? 'bg-green-50 border-green-200' :
                             'bg-red-50 border-red-200'
                           }`}>
                             <p className={`text-xs font-medium ${
                               project.applications.find(app => 
-                                app.userId._id === user._id && 
+                                app.userId && app.userId._id === user._id && 
                                 app.roleTitle === role.title
                               ).status === 'pending' ? 'text-blue-700' : 
                               project.applications.find(app => 
-                                app.userId._id === user._id && 
+                                app.userId && app.userId._id === user._id && 
                                 app.roleTitle === role.title
                               ).status === 'accepted' ? 'text-green-700' :
                               'text-red-700'
                             }`}>
                               {project.applications.find(app => 
-                                app.userId._id === user._id && 
+                                app.userId && app.userId._id === user._id && 
                                 app.roleTitle === role.title
                               ).status === 'pending' ? 'Your application for this role is pending' : 
                               project.applications.find(app => 
-                                app.userId._id === user._id && 
+                                app.userId && app.userId._id === user._id && 
                                 app.roleTitle === role.title
                               ).status === 'accepted' ? 'You were accepted for this role' :
                               'Your application for this role was not accepted'}
