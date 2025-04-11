@@ -7,7 +7,7 @@ import { getCroppedImg } from '../utils/cropImage';
 import { Link } from "react-router-dom";
 import PostsList from "./PostsList";
 
-import { Camera, Clock, MapPin, UserCheck, UserPlus, X, Briefcase, Mail, Link as LinkIcon, Users, CheckCircle, Phone, Linkedin, Layout, Layers } from "lucide-react";
+import { Camera, Clock, MapPin, UserCheck, UserPlus, X, Briefcase, Mail, Link as LinkIcon, Users, CheckCircle, Phone, Linkedin, Layout, Layers, Check } from "lucide-react";
 
 const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 	const [isEditing, setIsEditing] = useState(false);
@@ -420,7 +420,7 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 								{userData.organization && (
 									<div className="flex items-center justify-end mb-2">
 										{userData.orgLogo ? (
-											<div className="w-12 h-12 mr-2 overflow-hidden bg-white rounded-lg border border-gray-100">
+											<div className="w-16 h-16 mr-3 overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm">
 												<img 
 													src={userData.orgLogo} 
 													alt={userData.organization}
@@ -428,16 +428,16 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 												/>
 											</div>
 										) : (
-											<div className="w-12 h-12 mr-2 bg-gray-100 rounded-full flex items-center justify-center">
-												<Briefcase size={18} className="text-gray-600" />
+											<div className="w-16 h-16 mr-3 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+												<Briefcase size={24} className="text-gray-500" />
 											</div>
 										)}
 										<div className="text-left">
-											<span className="font-medium text-base text-gray-800 block leading-tight">{userData.organization}</span>
+											<span className="font-medium text-lg text-gray-800 block leading-tight">{userData.organization}</span>
 											{userData.club && (
-												<span className="text-sm text-gray-600 block">
+												<span className="text-sm text-gray-600 block mt-1">
 													<span className="inline-flex items-center">
-														<Users size={12} className="text-gray-500 mr-1" />
+														<Users size={14} className="text-gray-500 mr-1.5" />
 														{userData.club}
 													</span>
 												</span>
@@ -447,10 +447,20 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 								)}
 								{!userData.organization && userData.club && (
 									<div className="flex items-center justify-end">
-										<div className="w-12 h-12 mr-2 bg-gray-100 rounded-full flex items-center justify-center">
-											<Users size={18} className="text-gray-600" />
-										</div>
-										<span className="text-base font-medium text-gray-700">{userData.club}</span>
+										{userData.orgLogo ? (
+											<div className="w-16 h-16 mr-3 overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm">
+												<img 
+													src={userData.orgLogo} 
+													alt={userData.club}
+													className="w-full h-full object-contain"
+												/>
+											</div>
+										) : (
+											<div className="w-16 h-16 mr-3 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+												<Users size={24} className="text-gray-500" />
+											</div>
+										)}
+										<span className="text-lg font-medium text-gray-800">{userData.club}</span>
 									</div>
 								)}
 							</div>
@@ -501,6 +511,63 @@ const ProfileHeader = ({ userData, onSave, isOwnProfile }) => {
 									placeholder="Your club or group affiliation"
 									className='border border-gray-300 rounded-md p-2 text-sm w-full focus:ring-2 focus:ring-primary/20 focus:border-primary'
 								/>
+							</div>
+						</div>
+
+						{/* Organization Logo Upload */}
+						<div className="mb-4">
+							<label className="block text-xs text-gray-600 mb-1">Organization/Club Logo</label>
+							<div className="flex items-center gap-3">
+								<div className="w-16 h-16 border border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
+									{editedData.orgLogo || userData.orgLogo ? (
+										<img 
+											src={editedData.orgLogo || userData.orgLogo} 
+											alt="Organization Logo" 
+											className="w-full h-full object-contain" 
+										/>
+									) : (
+										<Layout size={24} className="text-gray-400" />
+									)}
+								</div>
+								<div className="flex flex-col">
+									<label className="cursor-pointer text-sm text-primary hover:text-primary-dark mb-1">
+										Upload Logo
+										<input
+											type="file"
+											className="hidden"
+											accept="image/*"
+											onChange={(e) => {
+												const file = e.target.files[0];
+												if (file) {
+													toast.loading("Uploading logo...");
+													const reader = new FileReader();
+													reader.onloadend = () => {
+														setEditedData({ ...editedData, orgLogo: reader.result });
+														toast.dismiss();
+														toast.success("Logo ready for upload");
+													};
+													reader.onerror = () => {
+														toast.dismiss();
+														toast.error("Failed to process logo");
+													};
+													reader.readAsDataURL(file);
+												}
+											}}
+										/>
+									</label>
+									<span className="text-xs text-gray-500">
+										Recommended: Square PNG or JPG, max 1MB
+									</span>
+								</div>
+								{(editedData.orgLogo || userData.orgLogo) && (
+									<button
+										type="button"
+										onClick={() => setEditedData({ ...editedData, orgLogo: '' })}
+										className="text-xs text-red-500 hover:text-red-600"
+									>
+										Remove
+									</button>
+								)}
 							</div>
 						</div>
 

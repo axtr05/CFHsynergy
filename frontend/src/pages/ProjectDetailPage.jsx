@@ -105,7 +105,7 @@ const ProjectDetailPage = () => {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries(["project", projectId]);
       if (variables.status === "accepted") {
-        toast.success("Application accepted successfully!");
+        toast.success("Application accepted successfully! Other pending applications from this user will be automatically cancelled.");
       } else {
         toast.success("Application rejected successfully!");
       }
@@ -209,7 +209,7 @@ const ProjectDetailPage = () => {
       );
       
       if (acceptedApplication && !hasShownAcceptanceMessage) {
-        toast.success("Your application has been accepted! You are now a member of this project.");
+        toast.success(`Your application for the ${acceptedApplication.roleTitle} role has been accepted! You are now a member of this project.`);
         setHasShownAcceptanceMessage(true);
       }
     }
@@ -231,18 +231,20 @@ const ProjectDetailPage = () => {
   // Calculate paginated data
   const paginatedComments = comments?.comments || [];
   const totalCommentsPages = comments ? Math.ceil(comments.total / COMMENTS_PER_PAGE) : 1;
-  const paginatedTeamMembers = project?.teamMembers || [];
-  const totalTeamMembersPages = project?.teamMembers 
-    ? Math.ceil(project.teamMembers.length / TEAM_MEMBERS_PER_PAGE) 
-    : 1;
+  
+  // Filter out team members with deleted profiles (userId is null)
+  const validTeamMembers = project?.teamMembers?.filter(member => member.userId) || [];
+  const paginatedTeamMembers = validTeamMembers;
+  const totalTeamMembersPages = Math.ceil(validTeamMembers.length / TEAM_MEMBERS_PER_PAGE) || 1;
 
   // Variable definitions
   const isFounder = user && project?.founder?._id === user?._id;
-  const hasApplied = user && project?.applications?.some(app => app?.userId?._id === user?._id && app?.status === "pending");
-  const hasBeenRejectedForAny = user && project?.applications?.some(app => app?.userId?._id === user._id && app?.status === "rejected");
-  const hasBeenCancelledForAny = user && project?.applications?.some(app => app?.userId?._id === user._id && app?.status === "cancelled");
-  const isPendingApprovalForAny = user && project?.applications?.some(app => app?.userId?._id === user._id && app?.status === "pending");
-  const isTeamMember = project?.teamMembers?.some(member => member?.userId?._id === user?._id);
+  const hasApplied = user && project?.applications?.some(app => app?.userId && app?.userId?._id === user?._id && app?.status === "pending");
+  const hasBeenRejectedForAny = user && project?.applications?.some(app => app?.userId && app?.userId?._id === user._id && app?.status === "rejected");
+  const hasBeenCancelledForAny = user && project?.applications?.some(app => app?.userId && app?.userId?._id === user._id && app?.status === "cancelled");
+  const hasBeenAcceptedForAny = user && project?.applications?.some(app => app?.userId && app?.userId?._id === user._id && app?.status === "accepted");
+  const isPendingApprovalForAny = user && project?.applications?.some(app => app?.userId && app?.userId?._id === user._id && app?.status === "pending");
+  const isTeamMember = validTeamMembers?.some(member => member?.userId?._id === user?._id);
   const hasUpvoted = project?.upvotes?.some(upvoteId => upvoteId === user?._id);
   
   const projectCommentsToShow = showAllComments 
@@ -280,6 +282,15 @@ const ProjectDetailPage = () => {
       if (userApplication.status === "accepted") {
         return { text: "Accepted", disabled: true, style: "btn-success" };
       }
+    }
+    
+    // Check if user is accepted for ANY role in this project (to prevent applying to more roles)
+    const isAcceptedForAnyRole = user && project?.applications?.some(
+      app => app?.userId && app.userId._id === user._id && app?.status === "accepted"
+    );
+    
+    if (isAcceptedForAnyRole) {
+      return { text: "You're a member", disabled: true, style: "btn-disabled" };
     }
     
     // Check if the role is filled
@@ -549,6 +560,7 @@ const ProjectDetailPage = () => {
                     {/* Other team members (excluding founder) */}
                     {paginatedTeamMembers
                       .filter(member => member.userId?._id !== project.founder?._id)
+                      .filter(member => member.userId) // Filter out members with no user data (deleted profiles)
                       .map((member, index) => (
                         <div key={member.userId?._id || index} className="flex items-center justify-between border-b pb-4 last:border-0">
                           <div className="flex items-center">
@@ -563,11 +575,11 @@ const ProjectDetailPage = () => {
                                   to={`/profile/${member.userId.username}`}
                                   className="font-medium hover:text-primary hover:underline"
                                 >
-                                  {member.userId.name || "Unknown Member"}
+                                  {member.userId.name}
                                 </Link>
                               ) : (
                                 <span className="font-medium">
-                                  {member.userId?.name || "Unknown Member"}
+                                  {member.userId?.name}
                                 </span>
                               )}
                               <p className="text-xs text-gray-500">Joined {new Date(member.joinDate).toLocaleDateString()}</p>
@@ -599,7 +611,7 @@ const ProjectDetailPage = () => {
                         </div>
                       ))}
                     
-                    {project?.teamMembers?.length <= 1 && (
+                    {validTeamMembers.length <= 1 && (
                       <p className="text-gray-500 italic py-2">No team members yet besides the founder.</p>
                     )}
                   </div>
@@ -738,8 +750,8 @@ const ProjectDetailPage = () => {
                 {user && hasBeenCancelledForAny && (
                   <div className="mb-4 p-3 rounded-lg border bg-blue-50 border-blue-200">
                     <p className="text-sm font-medium text-blue-700">
-                      Some of your applications were cancelled because you were accepted for another role.
-                      You can reapply if you want.
+                      Some of your applications were cancelled because you were accepted for a different role.
+                      {!hasBeenAcceptedForAny && " You can reapply if you want."}
                     </p>
                   </div>
                 )}
@@ -757,45 +769,44 @@ const ProjectDetailPage = () => {
                         )}
                         
                         {/* Application status for this specific role */}
-                        {user && project.applications?.some(app => 
-                          app.userId && app.userId._id === user._id && 
-                          app.roleTitle === role.title && 
-                          ['pending', 'accepted', 'rejected'].includes(app.status)
-                        ) && (
-                          <div className={`mb-3 p-2 rounded-lg border ${
-                            project.applications.find(app => 
-                              app.userId && app.userId._id === user._id && 
-                              app.roleTitle === role.title
-                            ).status === 'pending' ? 'bg-blue-50 border-blue-200' : 
-                            project.applications.find(app => 
-                              app.userId && app.userId._id === user._id && 
-                              app.roleTitle === role.title
-                            ).status === 'accepted' ? 'bg-green-50 border-green-200' :
-                            'bg-red-50 border-red-200'
-                          }`}>
-                            <p className={`text-xs font-medium ${
-                              project.applications.find(app => 
-                                app.userId && app.userId._id === user._id && 
-                                app.roleTitle === role.title
-                              ).status === 'pending' ? 'text-blue-700' : 
-                              project.applications.find(app => 
-                                app.userId && app.userId._id === user._id && 
-                                app.roleTitle === role.title
-                              ).status === 'accepted' ? 'text-green-700' :
-                              'text-red-700'
-                            }`}>
-                              {project.applications.find(app => 
-                                app.userId && app.userId._id === user._id && 
-                                app.roleTitle === role.title
-                              ).status === 'pending' ? 'Your application for this role is pending' : 
-                              project.applications.find(app => 
-                                app.userId && app.userId._id === user._id && 
-                                app.roleTitle === role.title
-                              ).status === 'accepted' ? 'You were accepted for this role' :
-                              'Your application for this role was not accepted'}
-                            </p>
-                          </div>
-                        )}
+                        {user && (() => {
+                          // Find application for this specific role
+                          const roleApplication = project.applications?.find(app => 
+                            app.userId && app.userId._id === user._id && 
+                            app.roleTitle === role.title
+                          );
+                          
+                          // Only show acceptance message if this user is a team member with THIS specific role
+                          const isUserAcceptedForThisRole = project.teamMembers?.some(member => 
+                            member.userId && 
+                            member.userId._id === user._id && 
+                            member.role === role.title
+                          );
+                          
+                          // For pending applications
+                          if (roleApplication && roleApplication.status === 'pending') {
+                            return (
+                              <div className="mb-3 p-2 rounded-lg border bg-blue-50 border-blue-200">
+                                <p className="text-xs font-medium text-blue-700">
+                                  Your application for this role is pending
+                                </p>
+                              </div>
+                            );
+                          }
+                          
+                          // Only show acceptance message for the role they were actually accepted for
+                          if (isUserAcceptedForThisRole) {
+                            return (
+                              <div className="mb-3 p-2 rounded-lg border bg-green-50 border-green-200">
+                                <p className="text-xs font-medium text-green-700">
+                                  You were accepted for this role
+                                </p>
+                              </div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
                         
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">
@@ -826,12 +837,13 @@ const ProjectDetailPage = () => {
                   <div className="space-y-4">
                     {project.applications
                       .filter(app => app.status === "pending")
+                      .filter(app => app.userId) // Filter out applications with no user data (deleted profiles)
                       .map((application) => (
                         <div key={application._id} className="border rounded-lg p-4">
                           <div className="flex items-center mb-2">
                             <img 
                               src={application.userId?.profilePicture || "/avatar.png"} 
-                              alt={application.userId?.name || "Applicant"} 
+                              alt={application.userId?.name} 
                               className="w-8 h-8 rounded-full mr-2" 
                             />
                             <div>
@@ -840,11 +852,11 @@ const ProjectDetailPage = () => {
                                   to={`/profile/${application.userId.username}`}
                                   className="font-medium hover:underline"
                                 >
-                                  {application.userId.name || "Unknown Applicant"}
+                                  {application.userId.name}
                                 </Link>
                               ) : (
                                 <span className="font-medium">
-                                  {application.userId?.name || "Unknown Applicant"}
+                                  {application.userId.name}
                                 </span>
                               )}
                               <p className="text-xs text-gray-500">Applied for: {application.roleTitle}</p>
