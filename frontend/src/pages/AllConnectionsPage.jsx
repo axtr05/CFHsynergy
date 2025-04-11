@@ -3,49 +3,51 @@ import { useQuery } from "@tanstack/react-query";
 import { axiosInstance } from "../lib/axios";
 import Sidebar from "../components/Sidebar";
 import UserCard from "../components/UserCard";
-import RecommendedUser from "../components/RecommendedUser";
 import { useAuthUser } from "../utils/authHooks";
-import { Briefcase, TrendingUp, Users, Search, ArrowLeft, Loader2, Filter } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Users, Search, ArrowLeft, Loader2, Filter, Briefcase } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const RecommendationsPage = () => {
+const AllConnectionsPage = () => {
   const navigate = useNavigate();
   const { data: authUser, isLoading: isAuthLoading } = useAuthUser();
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all"); // all, founder, investor, job_seeker
+  const [roleFilter, setRoleFilter] = useState("all"); // all, founder, investor, other
 
-  // Get all recommendations based on user role
-  const { data: recommendedUsers, isLoading: isRecommendationsLoading } = useQuery({
-    queryKey: ["recommendedUsers", authUser?.userRole, "all"],
+  // Get all potential connections for job seekers
+  const { data: potentialConnections, isLoading: isConnectionsLoading } = useQuery({
+    queryKey: ["allPotentialConnections"],
     queryFn: async () => {
-      // Different endpoint based on user role
-      const roleParam = authUser?.userRole || "default";
-      // Get all recommendations without practical limits
-      const res = await axiosInstance.get(`/users/suggestions?role=${roleParam}&limit=1000`);
+      const res = await axiosInstance.get("/users/all-connections");
       return res.data;
     },
-    enabled: !!authUser
+    enabled: !!authUser && authUser.userRole === "job_seeker"
   });
 
-  if (isAuthLoading || isRecommendationsLoading) {
+  if (isAuthLoading || isConnectionsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-gray-600 font-medium">Loading recommendations...</p>
+          <p className="text-gray-600 font-medium">Loading potential connections...</p>
         </div>
       </div>
     );
   }
 
+  // If user is not a job seeker, redirect to home
+  if (authUser?.userRole !== "job_seeker") {
+    navigate("/");
+    return null;
+  }
+
   // Filter and sort users
   const filterAndSortUsers = () => {
-    if (!recommendedUsers) return [];
+    if (!potentialConnections) return [];
     
     // First filter by role if needed
-    let filtered = recommendedUsers;
+    let filtered = potentialConnections;
     if (roleFilter !== "all") {
-      filtered = recommendedUsers.filter(user => user.userRole === roleFilter);
+      filtered = potentialConnections.filter(user => user.userRole === roleFilter);
     }
     
     // Then filter by search term
@@ -54,61 +56,15 @@ const RecommendationsPage = () => {
       filtered = filtered.filter(user => 
         user.name?.toLowerCase().includes(term) || 
         user.headline?.toLowerCase().includes(term) ||
-        user.username?.toLowerCase().includes(term)
+        user.username?.toLowerCase().includes(term) ||
+        user.organization?.toLowerCase().includes(term)
       );
     }
     
-    // Sort by role priority regardless of filter
-    const founders = filtered.filter(user => user.userRole === "founder");
-    const investors = filtered.filter(user => user.userRole === "investor");
-    const jobSeekers = filtered.filter(user => user.userRole === "job_seeker");
-    const others = filtered.filter(user => 
-      user.userRole !== "founder" && 
-      user.userRole !== "investor" && 
-      user.userRole !== "job_seeker"
-    );
-    
-    // Put founders and investors first, then job seekers
-    return [...founders, ...investors, ...jobSeekers, ...others];
+    return filtered;
   };
 
   const filteredUsers = filterAndSortUsers();
-  
-  // Determine the title and icon based on user role
-  const getRecommendationTitle = () => {
-    switch(authUser?.userRole) {
-      case "founder":
-        return {
-          title: "Investors you may want to connect with",
-          subtitle: "Connect with investors who can help grow your startup",
-          icon: <TrendingUp size={24} className="text-blue-500" />,
-          gradient: "from-blue-500 to-indigo-500"
-        };
-      case "investor":
-        return {
-          title: "Founders you may want to connect with",
-          subtitle: "Discover promising startups and founders",
-          icon: <Briefcase size={24} className="text-green-500" />,
-          gradient: "from-green-500 to-emerald-500"
-        };
-      case "job_seeker":
-        return {
-          title: "Founders looking for talent",
-          subtitle: "Find opportunities at growing startups",
-          icon: <Briefcase size={24} className="text-purple-500" />,
-          gradient: "from-purple-500 to-pink-500"
-        };
-      default:
-        return {
-          title: "People you may know",
-          subtitle: "Expand your professional network",
-          icon: <Users size={24} className="text-gray-500" />,
-          gradient: "from-gray-500 to-slate-500"
-        };
-    }
-  };
-
-  const recommendation = getRecommendationTitle();
 
   return (
     <div className="max-w-7xl mx-auto pt-6 px-4">
@@ -129,26 +85,15 @@ const RecommendationsPage = () => {
             </button>
             
             {/* Title Section with Gradient */}
-            <div className={`bg-gradient-to-r ${recommendation.gradient} p-6 rounded-lg text-white mb-6`}>
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-lg text-white mb-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="bg-white/20 p-2 rounded-lg">
-                  {recommendation.icon}
+                  <Briefcase size={24} className="text-white" />
                 </div>
-                <div className="flex-1">
-                  <h1 className="text-2xl font-bold">{recommendation.title}</h1>
-                  <p className="text-white/80">{recommendation.subtitle}</p>
+                <div>
+                  <h1 className="text-2xl font-bold">All Potential Connections</h1>
+                  <p className="text-white/80">Connect with founders and professionals to expand your network</p>
                 </div>
-                
-                {/* View All Connections Button for Job Seekers */}
-                {authUser?.userRole === "job_seeker" && (
-                  <Link 
-                    to="/all-connections" 
-                    className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center"
-                  >
-                    <Users size={16} className="mr-2" />
-                    View All Connections
-                  </Link>
-                )}
               </div>
             </div>
             
@@ -157,7 +102,7 @@ const RecommendationsPage = () => {
               <div className="relative flex-grow">
                 <input
                   type="text"
-                  placeholder="Search by name or headline..."
+                  placeholder="Search by name, headline, or organization..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none"
@@ -173,7 +118,7 @@ const RecommendationsPage = () => {
                   className="py-3 px-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none"
                 >
                   <option value="all">All Roles</option>
-                  <option value="founder">Entrepreneurs</option>
+                  <option value="founder">Founders</option>
                   <option value="investor">Investors</option>
                   <option value="job_seeker">Job Seekers</option>
                 </select>
@@ -201,8 +146,8 @@ const RecommendationsPage = () => {
                 {searchTerm 
                   ? "Try adjusting your search criteria"
                   : roleFilter !== "all" 
-                    ? `No ${roleFilter === "job_seeker" ? "job seekers" : roleFilter === "founder" ? "entrepreneurs" : "investors"} found in your recommendations`
-                    : "No recommendations available at this time"}
+                    ? `No ${roleFilter === "job_seeker" ? "job seekers" : roleFilter === "founder" ? "founders" : "investors"} found in your potential connections`
+                    : "No potential connections available at this time"}
               </p>
               {(searchTerm || roleFilter !== "all") && (
                 <button
@@ -223,4 +168,4 @@ const RecommendationsPage = () => {
   );
 };
 
-export default RecommendationsPage; 
+export default AllConnectionsPage; 

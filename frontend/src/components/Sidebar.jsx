@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Home, UserPlus, Bell } from "lucide-react";
+import { Home, UserPlus, Bell, Users } from "lucide-react";
 
 export default function Sidebar({ user }) {
 	// Make sure user exists and has the required properties
@@ -64,6 +64,16 @@ export default function Sidebar({ user }) {
 								<Bell className='mr-2' size={20} /> Notifications
 							</Link>
 						</li>
+						{user?.userRole === "job_seeker" && (
+							<li>
+								<Link
+									to='/all-connections'
+									className='flex items-center py-2 px-4 rounded-md hover:bg-primary hover:text-white transition-colors'
+								>
+									<Users className='mr-2' size={20} /> All Connections
+								</Link>
+							</li>
+						)}
 					</ul>
 				</nav>
 			</div>

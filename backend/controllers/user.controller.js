@@ -8,7 +8,7 @@ import cloudinary from "../lib/cloudinary.js";
 export const getSuggestedConnections = async (req, res) => {
 	try {
 		const currentUser = await User.findById(req.user._id).select("connections userRole");
-		const { role = "default", limit = 6 } = req.query;
+		const { role = "default", limit = 50 } = req.query;
 
 		// Base query to find users who are not already connected
 		let query = {
@@ -65,7 +65,7 @@ export const getSuggestedConnections = async (req, res) => {
 				
 				secondDegreeConnections = await User.find(secondDegreeQuery)
 					.select("name username profilePicture headline userRole")
-					.limit(Math.min(Number(limit), 6)); // Cap at requested limit or 6
+					.limit(Number(limit)); // Use the requested limit without additional cap
 			}
 		}
 		
@@ -73,7 +73,7 @@ export const getSuggestedConnections = async (req, res) => {
 		const roleSuggestions = await User.find(query)
 			.select("name username profilePicture headline userRole connections")
 			.sort({ createdAt: -1 }) // Sort by newest users first
-			.limit(Math.min(Number(limit), 6)); // Cap at requested limit or 6
+			.limit(Number(limit)); // Use the requested limit without additional cap
 		
 		// Combine and deduplicate based on user ID
 		const allSuggestions = [...secondDegreeConnections, ...roleSuggestions];
@@ -81,8 +81,8 @@ export const getSuggestedConnections = async (req, res) => {
 			new Map(allSuggestions.map(user => [user._id.toString(), user])).values()
 		);
 		
-		// Return only the requested number of suggestions
-		const finalSuggestions = uniqueSuggestions.slice(0, Math.min(Number(limit), 6));
+		// Return all suggestions up to the limit without additional cap
+		const finalSuggestions = uniqueSuggestions.slice(0, Number(limit));
 		
 		res.json(finalSuggestions);
 	} catch (error) {
@@ -405,6 +405,70 @@ export const toggleVerification = async (req, res) => {
 		res.json({ message: "User verification status updated", isVerified: user.isVerified });
 	} catch (error) {
 		console.error("Error in toggleVerification controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+// New function to get all potential connections for job seekers
+export const getAllPotentialConnections = async (req, res) => {
+	try {
+		// Only job seekers can access this endpoint
+		const currentUser = await User.findById(req.user._id).select("connections userRole");
+		
+		if (currentUser.userRole !== "job_seeker") {
+			return res.status(403).json({ message: "This feature is only available to job seekers" });
+		}
+
+		// Find users who are not already connected to the current user
+		const query = {
+			_id: {
+				$ne: req.user._id,
+				$nin: currentUser.connections,
+			},
+		};
+
+		// Get all pending connection requests (outgoing)
+		const pendingRequestsOutgoing = await ConnectionRequest.find({
+			sender: req.user._id,
+			status: "pending"
+		}).select("recipient");
+
+		// Get all pending connection requests (incoming)
+		const pendingRequestsIncoming = await ConnectionRequest.find({
+			recipient: req.user._id,
+			status: "pending"
+		}).select("sender");
+
+		// Exclude users that have pending requests
+		const pendingOutgoingIds = pendingRequestsOutgoing.map(req => req.recipient);
+		const pendingIncomingIds = pendingRequestsIncoming.map(req => req.sender);
+		const allPendingIds = [...pendingOutgoingIds, ...pendingIncomingIds];
+
+		if (allPendingIds.length > 0) {
+			query._id.$nin = Array.isArray(query._id.$nin) 
+				? [...query._id.$nin, ...allPendingIds] 
+				: allPendingIds;
+		}
+
+		// Find all users that match the criteria
+		const allUsers = await User.find(query)
+			.select("name username profilePicture headline userRole organization")
+			.sort({ createdAt: -1 });
+
+		// Sort users: founders first, then investors, then others
+		const founders = allUsers.filter(user => user.userRole === "founder");
+		const investors = allUsers.filter(user => user.userRole === "investor");
+		const others = allUsers.filter(user => 
+			user.userRole !== "founder" && 
+			user.userRole !== "investor"
+		);
+
+		// Combine the sorted lists
+		const sortedUsers = [...founders, ...investors, ...others];
+
+		res.json(sortedUsers);
+	} catch (error) {
+		console.error("Error in getAllPotentialConnections controller:", error);
 		res.status(500).json({ message: "Server error" });
 	}
 };

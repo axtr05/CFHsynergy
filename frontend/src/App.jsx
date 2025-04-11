@@ -23,6 +23,7 @@ import EditProjectPage from "./pages/EditProjectPage";
 import LandingPage from "./pages/LandingPage";
 import TestPage from "./pages/TestPage";
 import RecommendationsPage from "./pages/RecommendationsPage";
+import AllConnectionsPage from "./pages/AllConnectionsPage";
 
 // Error Boundary Component for network errors
 const ConnectionErrorBanner = ({ isVisible, onRetry }) => {
@@ -208,6 +209,14 @@ function App() {
 					<Route path='/notifications' element={authUser ? <NotificationsPage /> : <Navigate to={"/"} />} />
 					<Route path='/network' element={authUser ? <NetworkPage /> : <Navigate to={"/"} />} />
 					<Route path='/recommendations' element={authUser ? <RecommendationsPage /> : <Navigate to={"/"} />} />
+					<Route 
+						path='/all-connections' 
+						element={
+							authUser 
+								? (authUser.userRole === "job_seeker" ? <AllConnectionsPage /> : <Navigate to={"/"} />)
+								: <Navigate to={"/"} />
+						}
+					/>
 					<Route path='/post/:postId' element={authUser ? <PostPage /> : <Navigate to={"/"} />} />
 					<Route path='/profile/:username' element={authUser ? <ProfilePage /> : <Navigate to={"/"} />} />
 					<Route path='/profile/:username/activity' element={authUser ? <UserActivityPage /> : <Navigate to={"/"} />} />

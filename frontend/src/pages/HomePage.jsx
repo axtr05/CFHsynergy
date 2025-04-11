@@ -14,11 +14,11 @@ const HomePage = () => {
 
 	// Get recommendations based on user role
 	const { data: recommendedUsers, isLoading: isRecommendationsLoading } = useQuery({
-		queryKey: ["recommendedUsers", authUser?.userRole],
+		queryKey: ["recommendedUsers", authUser?.userRole, "preview"],
 		queryFn: async () => {
 			// Different endpoint based on user role
 			const roleParam = authUser?.userRole || "default";
-			const res = await axiosInstance.get(`/users/suggestions?role=${roleParam}&limit=10`);
+			const res = await axiosInstance.get(`/users/suggestions?role=${roleParam}&limit=20`);
 			return res.data;
 		},
 		enabled: !!authUser
