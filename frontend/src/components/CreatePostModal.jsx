@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Image, Video, FileText, BarChart3, Smile, Plus } from 'lucide-react';
+import { X, Image, Video, FileText, BarChart3, Smile, Plus, Loader2 } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -190,6 +190,13 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
     };
   }, [mediaPreviewUrls]);
 
+  // Prevent closing the modal while uploading
+  const handleClose = () => {
+    if (!isLoading) {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
   
   const getAcceptedFileTypes = () => {
@@ -207,12 +214,19 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-xl animate-in fade-in zoom-in duration-200">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-xl animate-in fade-in zoom-in duration-200 relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center z-10 rounded-xl">
+            <Loader2 size={40} className="text-primary animate-spin mb-2" />
+            <p className="text-gray-700 font-medium">Creating your post...</p>
+          </div>
+        )}
         <div className="flex items-center justify-between border-b border-gray-200 p-4">
           <h2 className="text-xl font-semibold text-gray-900">Create post</h2>
           <button 
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            onClick={handleClose}
+            className={`text-gray-500 hover:text-gray-700 ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
+            disabled={isLoading}
           >
             <X size={24} />
           </button>
@@ -239,6 +253,7 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
               placeholder="What do you want to talk about?"
               className="w-full min-h-[140px] text-lg text-gray-800 placeholder-gray-500 bg-transparent border-none focus:ring-0 resize-none"
               required={!mediaFiles.length && mediaType !== 'poll'}
+              disabled={isLoading}
             />
             
             {/* Media previews */}
@@ -377,40 +392,45 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
               <div className="flex gap-2">
                 <button 
                   type="button" 
-                  className={`p-2 ${mediaType === 'photo' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors`}
+                  className={`p-2 ${mediaType === 'photo' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="Add a photo"
                   onClick={() => handleMediaTypeSelect('photo')}
+                  disabled={isLoading}
                 >
                   <Image size={20} />
                 </button>
                 <button 
                   type="button" 
-                  className={`p-2 ${mediaType === 'video' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors`}
+                  className={`p-2 ${mediaType === 'video' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="Add a video"
                   onClick={() => handleMediaTypeSelect('video')}
+                  disabled={isLoading}
                 >
                   <Video size={20} />
                 </button>
                 <button 
                   type="button" 
-                  className={`p-2 ${mediaType === 'poll' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors`}
+                  className={`p-2 ${mediaType === 'poll' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="Create a poll"
                   onClick={() => handleMediaTypeSelect('poll')}
+                  disabled={isLoading}
                 >
                   <BarChart3 size={20} />
                 </button>
                 <button 
                   type="button" 
-                  className={`p-2 ${mediaType === 'document' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors`}
+                  className={`p-2 ${mediaType === 'document' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="Add a document"
                   onClick={() => handleMediaTypeSelect('document')}
+                  disabled={isLoading}
                 >
                   <FileText size={20} />
                 </button>
                 <button 
                   type="button" 
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                  className={`p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="Add emoji"
+                  disabled={isLoading}
                 >
                   <Smile size={20} />
                 </button>
@@ -419,13 +439,20 @@ const CreatePostModal = ({ isOpen, onClose, user, initialMediaType = null }) => 
               <button
                 type="submit"
                 disabled={isLoading || (!postContent.trim() && !mediaFiles.length && mediaType !== 'poll')}
-                className={`px-4 py-1.5 rounded-full font-medium text-sm ${
+                className={`px-4 py-1.5 rounded-full font-medium text-sm flex items-center gap-2 ${
                   (postContent.trim() || mediaFiles.length > 0 || mediaType === 'poll') && !isLoading
                     ? 'bg-primary text-white hover:bg-primary/90'
                     : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                 } transition-colors`}
               >
-                {isLoading ? 'Posting...' : 'Post'}
+                {isLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Posting...</span>
+                  </>
+                ) : (
+                  'Post'
+                )}
               </button>
             </div>
           </form>

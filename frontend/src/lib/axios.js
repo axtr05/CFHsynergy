@@ -34,6 +34,20 @@ axiosInstance.interceptors.response.use(
 	async (error) => {
 		const originalRequest = error.config;
 		
+		// Special handling for like post errors
+		if (originalRequest.url.includes('/like') && error.response?.status === 500) {
+			console.error('Detected 500 error on like endpoint:', {
+				url: originalRequest.url,
+				method: originalRequest.method,
+				status: error.response?.status,
+				data: error.response?.data,
+				message: error.message
+			});
+			
+			// Return failed request without retry for like endpoint 500 errors
+			return Promise.reject(error);
+		}
+		
 		// Log the error details
 		console.error(`API Error: ${originalRequest.method.toUpperCase()} ${originalRequest.url}`, {
 			status: error.response?.status,

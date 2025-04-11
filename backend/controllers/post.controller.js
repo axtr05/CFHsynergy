@@ -196,7 +196,12 @@ export const createComment = async (req, res) => {
 		const post = await Post.findByIdAndUpdate(
 			postId,
 			{
-				$push: { comments: { user: req.user._id, content } },
+				$push: { comments: { 
+					user: req.user._id, 
+					content,
+					likes: [],
+					dislikes: []
+				}},
 			},
 			{ new: true }
 		).populate("author", "name email username headline profilePicture");
@@ -223,33 +228,59 @@ export const createComment = async (req, res) => {
 export const likePost = async (req, res) => {
 	try {
 		const postId = req.params.id;
-		const post = await Post.findById(postId);
 		const userId = req.user._id;
 
-		if (post.likes.includes(userId)) {
-			// unlike the post
-			post.likes = post.likes.filter((id) => id.toString() !== userId.toString());
+		// Check if post exists
+		const post = await Post.findById(postId);
+		if (!post) {
+			return res.status(404).json({ message: "Post not found" });
+		}
+
+		// Ensure likes array exists
+		if (!post.likes) {
+			post.likes = [];
+		}
+
+		// Safely check if user already liked the post
+		const userLiked = post.likes.some(id => id && id.toString() === userId.toString());
+
+		if (userLiked) {
+			// unlike the post - filter out safely
+			post.likes = post.likes.filter((id) => id && id.toString() !== userId.toString());
 		} else {
 			// like the post
 			post.likes.push(userId);
+			
 			// create a notification if the post owner is not the user who liked
-			if (post.author.toString() !== userId.toString()) {
-				const newNotification = new Notification({
-					recipient: post.author,
-					type: "like",
-					relatedUser: userId,
-					relatedPost: postId,
-				});
+			try {
+				if (post.author && post.author.toString() !== userId.toString()) {
+					// Create notification following the proper schema
+					const newNotification = new Notification({
+						recipient: post.author,
+						sender: userId,  // Add the required sender field
+						type: "post_like", // Use the enum value from the schema
+						post: postId,    // Use the post field instead of relatedPost
+					});
 
-				await newNotification.save();
+					await newNotification.save();
+				}
+			} catch (notificationError) {
+				// Log but don't fail if notification creation fails
+				console.error("Error creating like notification:", notificationError);
 			}
 		}
 
 		await post.save();
-		res.status(200).json(post);
+		
+		// Return a clean, serialized post object
+		const serializedPost = post.toObject();
+		res.status(200).json(serializedPost);
 	} catch (error) {
 		console.error("Error in likePost controller:", error);
-		res.status(500).json({ message: "Server error" });
+		res.status(500).json({ 
+			message: "Server error while processing like",
+			error: error.message
+		});
 	}
 };
 
@@ -274,6 +305,187 @@ export const getPostsByUser = async (req, res) => {
 		res.status(200).json(serializedPosts);
 	} catch (error) {
 		console.error("Error in getPostsByUser controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export const deleteComment = async (req, res) => {
+	try {
+		const { postId, commentId } = req.params;
+		const userId = req.user._id;
+		
+		// Find the post
+		const post = await Post.findById(postId);
+		if (!post) {
+			return res.status(404).json({ message: "Post not found" });
+		}
+		
+		// Find the comment
+		const comment = post.comments.id(commentId);
+		if (!comment) {
+			return res.status(404).json({ message: "Comment not found" });
+		}
+		
+		// Check if user is the comment author or post author
+		const isCommentAuthor = comment.user.toString() === userId.toString();
+		const isPostAuthor = post.author.toString() === userId.toString();
+		
+		if (!isCommentAuthor && !isPostAuthor) {
+			return res.status(403).json({ message: "Not authorized to delete this comment" });
+		}
+		
+		// Remove the comment
+		post.comments.pull({ _id: commentId });
+		await post.save();
+		
+		// Return updated post
+		await post.populate("comments.user", "name profilePicture username");
+		const serializedPost = post.toObject();
+		res.status(200).json(serializedPost);
+	} catch (error) {
+		console.error("Error in deleteComment controller:", error);
+		res.status(500).json({ 
+			message: "Server error while deleting comment",
+			error: error.message
+		});
+	}
+};
+
+export const editComment = async (req, res) => {
+	try {
+		const { postId, commentId } = req.params;
+		const { content } = req.body;
+		const userId = req.user._id;
+		
+		// Validate content
+		if (!content || !content.trim()) {
+			return res.status(400).json({ message: "Comment content cannot be empty" });
+		}
+		
+		// Find the post
+		const post = await Post.findById(postId);
+		if (!post) {
+			return res.status(404).json({ message: "Post not found" });
+		}
+		
+		// Find the comment
+		const comment = post.comments.id(commentId);
+		if (!comment) {
+			return res.status(404).json({ message: "Comment not found" });
+		}
+		
+		// Check if user is the comment author
+		if (comment.user.toString() !== userId.toString()) {
+			return res.status(403).json({ message: "Not authorized to edit this comment" });
+		}
+		
+		// Update the comment
+		comment.content = content;
+		comment.edited = true;
+		await post.save();
+		
+		// Return updated post
+		await post.populate("comments.user", "name profilePicture username");
+		const serializedPost = post.toObject();
+		res.status(200).json(serializedPost);
+	} catch (error) {
+		console.error("Error in editComment controller:", error);
+		res.status(500).json({ 
+			message: "Server error while editing comment",
+			error: error.message
+		});
+	}
+};
+
+// New functions for liking and disliking comments
+export const likeComment = async (req, res) => {
+	try {
+		const { postId, commentId } = req.params;
+		const userId = req.user._id;
+
+		const post = await Post.findById(postId);
+		if (!post) {
+			return res.status(404).json({ message: "Post not found" });
+		}
+
+		const comment = post.comments.id(commentId);
+		if (!comment) {
+			return res.status(404).json({ message: "Comment not found" });
+		}
+
+		// Initialize likes array if it doesn't exist
+		if (!comment.likes) {
+			comment.likes = [];
+		}
+
+		// Initialize dislikes array if it doesn't exist
+		if (!comment.dislikes) {
+			comment.dislikes = [];
+		}
+
+		const hasLiked = comment.likes.includes(userId);
+		
+		if (hasLiked) {
+			// Unlike: Remove user ID from likes
+			comment.likes = comment.likes.filter(id => id.toString() !== userId.toString());
+		} else {
+			// Like: Add user ID to likes
+			comment.likes.push(userId);
+			
+			// If user has disliked, remove from dislikes
+			comment.dislikes = comment.dislikes.filter(id => id.toString() !== userId.toString());
+		}
+
+		await post.save();
+		res.status(200).json({ likes: comment.likes, dislikes: comment.dislikes });
+	} catch (error) {
+		console.error("Error in likeComment controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export const dislikeComment = async (req, res) => {
+	try {
+		const { postId, commentId } = req.params;
+		const userId = req.user._id;
+
+		const post = await Post.findById(postId);
+		if (!post) {
+			return res.status(404).json({ message: "Post not found" });
+		}
+
+		const comment = post.comments.id(commentId);
+		if (!comment) {
+			return res.status(404).json({ message: "Comment not found" });
+		}
+
+		// Initialize likes array if it doesn't exist
+		if (!comment.likes) {
+			comment.likes = [];
+		}
+
+		// Initialize dislikes array if it doesn't exist
+		if (!comment.dislikes) {
+			comment.dislikes = [];
+		}
+
+		const hasDisliked = comment.dislikes.includes(userId);
+		
+		if (hasDisliked) {
+			// Un-dislike: Remove user ID from dislikes
+			comment.dislikes = comment.dislikes.filter(id => id.toString() !== userId.toString());
+		} else {
+			// Dislike: Add user ID to dislikes
+			comment.dislikes.push(userId);
+			
+			// If user has liked, remove from likes
+			comment.likes = comment.likes.filter(id => id.toString() !== userId.toString());
+		}
+
+		await post.save();
+		res.status(200).json({ likes: comment.likes, dislikes: comment.dislikes });
+	} catch (error) {
+		console.error("Error in dislikeComment controller:", error);
 		res.status(500).json({ message: "Server error" });
 	}
 };
