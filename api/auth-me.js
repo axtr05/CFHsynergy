@@ -9,9 +9,15 @@ import { protectRoute } from '../backend/middleware/auth.middleware.js';
 // Load environment variables
 dotenv.config();
 
+// Track connection state
+let dbConnected = false;
+
 // Connect to database
 connectDB()
-  .then(() => console.log('Connected to database in auth-me handler'))
+  .then(() => {
+    console.log('Connected to database in auth-me handler');
+    dbConnected = true;
+  })
   .catch(err => {
     console.error('Database connection error in auth-me handler:', err.message);
     // Don't crash the server - we'll retry on subsequent requests
@@ -24,8 +30,8 @@ const app = express();
 app.use((req, res, next) => {
   console.log(`Auth-me endpoint requested: ${req.method} ${req.url}`);
   // Log cookies and headers for debugging
-  console.log('Cookies:', req.headers.cookie);
-  console.log('Auth header:', req.headers.authorization);
+  console.log('Cookies:', req.headers.cookie || 'none');
+  console.log('Auth header:', req.headers.authorization || 'none');
   
   // Remove any path query parameter as it's causing issues
   if (req.query.path) {
@@ -40,18 +46,45 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(cookieParser());
 
+// MongoDB connection check middleware
+app.use(async (req, res, next) => {
+  // Skip options requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+  
+  // If we're not connected to MongoDB, try to connect again
+  if (!dbConnected) {
+    try {
+      console.log('Attempting to reconnect to MongoDB...');
+      await connectDB();
+      dbConnected = true;
+      console.log('Successfully reconnected to MongoDB');
+    } catch (error) {
+      console.error('Failed to reconnect to MongoDB:', error.message);
+      return res.status(503).json({ 
+        message: 'Database service unavailable',
+        error: 'Could not connect to database. Please try again later.'
+      });
+    }
+  }
+  
+  next();
+});
+
 // CORS
 const isDevelopment = process.env.NODE_ENV !== "production";
 const clientUrl = process.env.CLIENT_URL || (isDevelopment ? "http://localhost:5173" : "https://cfhsynergy.vercel.app");
+// Ensure allowedOrigins is always an array even if CLIENT_URL is undefined
 const allowedOrigins = [
   clientUrl,
   "https://cfhsynergy.vercel.app",
   "http://localhost:5173",
   "http://127.0.0.1:5173"
-];
+].filter(Boolean); // Remove any falsy values (like undefined)
 
 console.log(`Auth-me handler allowing origins: ${allowedOrigins.join(", ")}`);
-console.log(`Environment: ${process.env.NODE_ENV}`);
+console.log(`Environment: ${process.env.NODE_ENV || 'not set'}`);
 
 app.use(cors({
   origin: (origin, callback) => {

@@ -32,11 +32,12 @@ export const connectDB = async () => {
 		return;
 	}
 	
-	// Get MongoDB URI from environment
-	const MONGODB_URI = process.env.MONGODB_URI;
+	// Get MongoDB URI from environment - try both possible env var names
+	const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
 	
 	if (!MONGODB_URI) {
-		throw new Error("MONGODB_URI is not defined in environment variables");
+		console.error("MONGODB_URI or MONGO_URI is not defined in environment variables");
+		throw new Error("Database connection string is not defined in environment variables");
 	}
 	
 	try {

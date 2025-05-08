@@ -69,15 +69,16 @@ app.use(async (req, res, next) => {
 // CORS
 const isDevelopment = process.env.NODE_ENV !== "production";
 const clientUrl = process.env.CLIENT_URL || (isDevelopment ? "http://localhost:5173" : "https://cfhsynergy.vercel.app");
+// Ensure allowedOrigins is always an array even if CLIENT_URL is undefined
 const allowedOrigins = [
   clientUrl,
   "https://cfhsynergy.vercel.app",
   "http://localhost:5173",
   "http://127.0.0.1:5173"
-];
+].filter(Boolean); // Remove any falsy values (like undefined)
 
 console.log(`Auth-main handler allowing origins: ${allowedOrigins.join(", ")}`);
-console.log(`Environment: ${process.env.NODE_ENV}`);
+console.log(`Environment: ${process.env.NODE_ENV || 'not set'}`);
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -101,25 +102,42 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors());
 
-// Auth routes
-app.post('/api/v1/auth/login', login);
-app.post('/api/auth/login', login);
-app.post('/auth/login', login);
+// Auth routes - handle both '/path' and '/api/v1/path' formats without duplicating handlers
+const registerAuthHandler = (method, paths, handler) => {
+  paths.forEach(path => {
+    app[method](path, handler);
+    console.log(`Registered ${method.toUpperCase()} handler for: ${path}`);
+  });
+};
 
-app.post('/api/v1/auth/signup', register);
-app.post('/api/v1/auth/register', register);
-app.post('/api/auth/signup', register);
-app.post('/api/auth/register', register);
-app.post('/auth/signup', register);
-app.post('/auth/register', register);
+// Register login routes
+registerAuthHandler('post', [
+  '/api/v1/auth/login',
+  '/api/auth/login',
+  '/auth/login',
+  '/login'
+], login);
 
-// Catch-all route for other auth endpoints
+// Register signup/register routes
+registerAuthHandler('post', [
+  '/api/v1/auth/signup',
+  '/api/v1/auth/register',
+  '/api/auth/signup',
+  '/api/auth/register',
+  '/auth/signup',
+  '/auth/register',
+  '/signup',
+  '/register'
+], register);
+
+// Catch-all route handler for debugging
 app.all('*', (req, res) => {
   console.log(`Received request to unmapped auth endpoint: ${req.method} ${req.path}`);
   res.status(404).json({ 
     message: 'Auth endpoint not found', 
     path: req.path,
-    method: req.method
+    method: req.method,
+    env: process.env.NODE_ENV || 'not set'
   });
 });
 

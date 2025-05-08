@@ -82,15 +82,16 @@ app.use(cookieParser());
 // CORS settings - use the CLIENT_URL from env or default to Vercel URL
 const isDevelopment = process.env.NODE_ENV !== "production";
 const clientUrl = process.env.CLIENT_URL || (isDevelopment ? "http://localhost:5173" : "https://cfhsynergy.vercel.app");
+// Ensure allowedOrigins is always an array even if CLIENT_URL is undefined
 const allowedOrigins = [
   clientUrl,
   "https://cfhsynergy.vercel.app",
   "http://localhost:5173",
   "http://127.0.0.1:5173"
-];
+].filter(Boolean); // Remove any falsy values
 
 console.log(`Setting CORS to allow origins: ${allowedOrigins.join(", ")}`);
-console.log(`Environment: ${process.env.NODE_ENV}`);
+console.log(`Environment: ${process.env.NODE_ENV || 'not set'}`);
 
 app.use(
   cors({
@@ -135,8 +136,8 @@ app.get("/v1/health", (req, res) => {
   res.status(200).json({ 
     status: "ok", 
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
-    clientUrl: clientUrl,
+    env: process.env.NODE_ENV || 'not set',
+    clientUrl: clientUrl || 'not set',
     database: dbConnected ? "connected" : "disconnected"
   });
 });

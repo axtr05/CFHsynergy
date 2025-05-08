@@ -72,8 +72,7 @@
   "env": {
     "NODE_ENV": "production",
     "CLIENT_URL": "https://cfhsynergy.vercel.app",
-    "MONGODB_URI": "mongodb+srv://user:password@ac-rroazy2-shard-00-00.vfo4amg.mongodb.net/cfhsynergy?retryWrites=true&w=majority",
-    "MONGO_URI": "mongodb+srv://user:password@ac-rroazy2-shard-00-00.vfo4amg.mongodb.net/cfhsynergy?retryWrites=true&w=majority"
+    "MONGO_URI": "mongodb+srv://axtroffi:axtrkj05@cfhsynergy.vfo4amg.mongodb.net/"
   },
   "headers": [
     {
