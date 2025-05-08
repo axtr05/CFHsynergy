@@ -36,6 +36,17 @@ if (process.env.NODE_ENV !== "production") {
 			exposedHeaders: ["set-cookie"]
 		})
 	);
+} else {
+	// Production CORS config (will work with Vercel)
+	const corsOptions = {
+		origin: process.env.CLIENT_URL || true, // Allow requests from the specified domain or all domains if not set
+		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+		allowedHeaders: ["Content-Type", "Authorization"],
+		exposedHeaders: ["set-cookie"]
+	};
+	
+	app.use(cors(corsOptions));
 }
 
 // Add some debug logging for requests

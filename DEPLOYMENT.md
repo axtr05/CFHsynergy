@@ -96,3 +96,21 @@ This starts your Node.js server in production mode which will serve both the API
 2. Monitor server logs for any errors
 3. Set up proper SSL certificates (most platforms handle this automatically)
 4. Consider setting up a CI/CD pipeline for automated deployments 
+
+To deploy to Vercel:
+
+1. Run this command to prepare your project:
+   ```
+   npm run prepare-vercel
+   ```
+
+2. Push your project to a Git repository (GitHub, GitLab, or Bitbucket).
+
+3. Import your repository in the Vercel dashboard and follow the steps in the VERCEL_DEPLOYMENT.md guide.
+
+The Vercel deployment will automatically:
+- Build your frontend using Vite
+- Set up your backend API
+- Configure routing so that API requests go to your Express server and all other requests go to your React app
+
+After deployment, make sure to update your environment variables in the Vercel dashboard with the correct values, especially the `CLIENT_URL` with your actual Vercel domain. 
