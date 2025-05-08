@@ -52,7 +52,7 @@ function App() {
 	// Function to check server health
 	const checkServerHealth = async () => {
 		try {
-			const res = await axiosInstance.get("/api/v1/health");
+			const res = await axiosInstance.get("/health");
 			if (res.status === 200) {
 				console.log("Server health check passed");
 				setConnectionError(false);
