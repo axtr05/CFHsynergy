@@ -5,8 +5,52 @@
   "installCommand": "npm install",
   "rewrites": [
     {
-      "source": "/api/v1/auth/:path*",
+      "source": "/api/v1/auth/me",
       "destination": "/api/auth-me"
+    },
+    {
+      "source": "/api/auth/me",
+      "destination": "/api/auth-me"
+    },
+    {
+      "source": "/auth/me",
+      "destination": "/api/auth-me"
+    },
+    {
+      "source": "/api/v1/auth/login",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/api/v1/auth/signup",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/api/v1/auth/register",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/api/auth/login",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/api/auth/signup",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/api/auth/register",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/auth/login",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/auth/signup",
+      "destination": "/api/auth-main"
+    },
+    {
+      "source": "/auth/register",
+      "destination": "/api/auth-main"
     },
     {
       "source": "/api/v1/:path*",
@@ -27,7 +71,9 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "CLIENT_URL": "https://cfhsynergy.vercel.app"
+    "CLIENT_URL": "https://cfhsynergy.vercel.app",
+    "MONGODB_URI": "mongodb+srv://user:password@ac-rroazy2-shard-00-00.vfo4amg.mongodb.net/cfhsynergy?retryWrites=true&w=majority",
+    "MONGO_URI": "mongodb+srv://user:password@ac-rroazy2-shard-00-00.vfo4amg.mongodb.net/cfhsynergy?retryWrites=true&w=majority"
   },
   "headers": [
     {

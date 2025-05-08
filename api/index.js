@@ -5,7 +5,6 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from 'url';
 
-import authRoutes from "../backend/routes/auth.route.js";
 import userRoutes from "../backend/routes/user.route.js";
 import postRoutes from "../backend/routes/post.route.js";
 import notificationRoutes from "../backend/routes/notification.route.js";
@@ -117,13 +116,7 @@ app.use(
 // Options pre-flight request handler for CORS
 app.options('*', cors());
 
-// API routes - ensure they're mounted correctly
-// Mount auth routes for backward compatibility
-app.use("/v1/auth", authRoutes);
-app.use("/auth", authRoutes);
-
-// Note: AUTH/ME endpoint is handled by separate API file (auth-me.js)
-// Mount other routes here
+// API routes - with auth endpoints removed (handled by separate serverless functions)
 app.use("/v1/users", userRoutes);
 app.use("/v1/posts", postRoutes);
 app.use("/v1/notifications", notificationRoutes);
@@ -154,6 +147,15 @@ app.get("/health", (req, res) => {
     status: "ok", 
     timestamp: new Date().toISOString(),
     database: dbConnected ? "connected" : "disconnected"
+  });
+});
+
+// Auth route fallback - informs users that auth endpoints are handled separately
+app.all('/v1/auth/*', (req, res) => {
+  console.log('Fallback auth route hit in main API handler:', req.path);
+  res.status(404).json({
+    message: 'Auth endpoint not found in main API handler. This endpoint should be handled by a dedicated auth serverless function.',
+    path: req.path
   });
 });
 

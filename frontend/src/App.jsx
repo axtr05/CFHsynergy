@@ -145,36 +145,71 @@ function App() {
 		queryKey: ["authUser"],
 		queryFn: async () => {
 			try {
-				// Try direct auth/me first (no /api/v1 prefix)
-				try {
-					console.log("Attempting auth check with direct endpoint");
-					const res = await axios.get("/auth/me", {
-						withCredentials: true,
-						baseURL: import.meta.env.MODE === "development" ? "http://localhost:5000" : "",
-						timeout: 10000
-					});
-					if (connectionError) setConnectionError(false);
-					return res.data;
-				} catch (directErr) {
-					console.log("Direct auth/me failed, trying with axiosInstance");
-					// Fall back to using axiosInstance which adds /api/v1
-					const res = await axiosInstance.get("/auth/me");
-					if (connectionError) setConnectionError(false);
-					return res.data;
+				// Try multiple auth endpoint paths in sequence with fallbacks
+				const endpoints = [
+					"/auth/me",                // Direct path (no prefix)
+					"/api/auth/me",            // API prefix 
+					"/api/v1/auth/me",         // API v1 prefix
+				];
+				
+				// Direct axios for maximum control (no interceptors)
+				const axiosConfig = {
+					withCredentials: true,
+					baseURL: import.meta.env.MODE === "development" ? "http://localhost:5000" : "",
+					timeout: 10000
+				};
+				
+				// Try each endpoint in sequence
+				let lastError = null;
+				for (const endpoint of endpoints) {
+					try {
+						console.log(`Trying auth endpoint: ${endpoint}`);
+						const res = await axios.get(endpoint, axiosConfig);
+						console.log(`Auth success with endpoint: ${endpoint}`);
+						if (connectionError) setConnectionError(false);
+						return res.data;
+					} catch (endpointErr) {
+						console.log(`Auth endpoint ${endpoint} failed:`, endpointErr.message);
+						lastError = endpointErr;
+						// If 401 unauthorized, no need to try further - user is not logged in
+						if (endpointErr.response?.status === 401) {
+							console.log('Got 401 - User not authorized');
+							return null;
+						}
+						// Otherwise, continue to next endpoint
+					}
 				}
-			} catch (err) {
-				// Handle auth errors separately from connection errors
-				if (err.response && err.response.status === 401) {
+				
+				// If we get here, all endpoints failed
+				console.log('All auth endpoints failed');
+				
+				// If any endpoint returned a 401, user is not authenticated
+				if (lastError?.response?.status === 401) {
 					return null;
 				}
 				
+				// For connection errors, set connection error state
+				if (
+					lastError?.code === 'ECONNABORTED' || 
+					lastError?.code === 'ECONNRESET' || 
+					!lastError?.response
+				) {
+					setConnectionError(true);
+				}
+				
+				throw lastError || new Error('Failed to authenticate');
+			} catch (err) {
 				// Handle connection errors
 				if (err.code === 'ECONNABORTED' || err.code === 'ECONNRESET' || !err.response) {
 					setConnectionError(true);
 					throw err; // Let React Query handle retries
 				}
 				
-				toast.error(err.response?.data?.message || "Something went wrong");
+				// If not a 401, show error toast
+				if (err.response?.status !== 401) {
+					toast.error(err.response?.data?.message || "Something went wrong");
+				}
+				
 				throw err;
 			}
 		},
