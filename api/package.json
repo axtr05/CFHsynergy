@@ -1,0 +1,13 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "API for CFH Synergy",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.2",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  }
+} 
