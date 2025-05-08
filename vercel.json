@@ -65,11 +65,35 @@
       "destination": "/api/auth-main"
     },
     {
+      "source": "/api/v1/users/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/v1/posts/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/v1/notifications/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/v1/connections/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/v1/projects/:path*",
+      "destination": "/api"
+    },
+    {
       "source": "/api/v1/:path*",
       "destination": "/api"
     },
     {
       "source": "/api/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/debug",
       "destination": "/api"
     },
     {
@@ -84,7 +108,8 @@
   "env": {
     "NODE_ENV": "production",
     "CLIENT_URL": "https://cfhsynergy.vercel.app",
-    "MONGO_URI": "mongodb+srv://axtroffi:axtrkj05@cfhsynergy.vfo4amg.mongodb.net/?retryWrites=true&w=majority&appName=cfhsynergy"
+    "MONGO_URI": "mongodb+srv://axtroffi:axtrkj05@cfhsynergy.vfo4amg.mongodb.net/?retryWrites=true&w=majority&appName=cfhsynergy",
+    "JWT_SECRET": "CFHSynergyJWTSecretToken"
   },
   "headers": [
     {
