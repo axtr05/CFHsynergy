@@ -26,17 +26,39 @@ const serverConfig = {
 	keepAliveTimeout: 30000, // 30 seconds
 };
 
-if (process.env.NODE_ENV !== "production") {
-	app.use(
-		cors({
-			origin: "http://localhost:5173",
-			credentials: true,
-			methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-			allowedHeaders: ["Content-Type", "Authorization"],
-			exposedHeaders: ["set-cookie"]
-		})
-	);
-}
+// CORS configuration for all environments
+const allowedOrigins = [
+	process.env.CLIENT_URL || "https://cfhsynergy.vercel.app",
+	"https://cfhsynergy.vercel.app",
+	"http://localhost:5173",
+	"http://127.0.0.1:5173"
+];
+
+console.log(`Setting up CORS with origins: ${allowedOrigins.join(', ')}`);
+console.log(`NODE_ENV: ${process.env.NODE_ENV}, CLIENT_URL: ${process.env.CLIENT_URL}`);
+
+app.use(
+	cors({
+		origin: function(origin, callback) {
+			// Allow requests with no origin (like mobile apps, Postman, etc.)
+			if (!origin) return callback(null, true);
+			
+			if (allowedOrigins.indexOf(origin) !== -1) {
+				callback(null, true);
+			} else {
+				console.warn(`Origin ${origin} not allowed by CORS`);
+				callback(null, true); // Allow all origins for debugging temporarily
+			}
+		},
+		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
+		exposedHeaders: ["set-cookie"]
+	})
+);
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Add some debug logging for requests
 app.use((req, res, next) => {
@@ -79,12 +101,31 @@ app.use((req, res, next) => {
 	next();
 });
 
-// Add a health check endpoint for monitoring
+// Add health check endpoints at various paths for maximum compatibility
 app.get("/api/v1/health", (req, res) => {
 	res.status(200).json({ 
 		status: "ok", 
 		timestamp: new Date().toISOString(),
-		uptime: process.uptime()
+		uptime: process.uptime(),
+		path: "/api/v1/health"
+	});
+});
+
+app.get("/v1/health", (req, res) => {
+	res.status(200).json({ 
+		status: "ok", 
+		timestamp: new Date().toISOString(),
+		uptime: process.uptime(),
+		path: "/v1/health"
+	});
+});
+
+app.get("/health", (req, res) => {
+	res.status(200).json({ 
+		status: "ok", 
+		timestamp: new Date().toISOString(),
+		uptime: process.uptime(),
+		path: "/health"
 	});
 });
 

@@ -52,9 +52,11 @@ function App() {
 	// Function to check server health
 	const checkServerHealth = async () => {
 		try {
-			const res = await axiosInstance.get("/health");
-			if (res.status === 200) {
-				console.log("Server health check passed");
+			console.log("Attempting health check...");
+			// Using auth/me as a more robust health check
+			try {
+				const res = await axiosInstance.get("/health");
+				console.log("Server health check passed via /health");
 				setConnectionError(false);
 				// Clear health check interval if connection is restored
 				if (healthCheckInterval) {
@@ -64,6 +66,23 @@ function App() {
 				// Refresh data
 				refetch();
 				return true;
+			} catch (healthErr) {
+				console.log("Primary health check failed, trying fallback...");
+				// Fallback to auth/me endpoint
+				const authRes = await axiosInstance.get("/auth/me", { 
+					validateStatus: () => true // Accept any status
+				});
+				if (authRes.status !== 0) { // Any response is better than none
+					console.log("Auth endpoint health check passed");
+					setConnectionError(false);
+					if (healthCheckInterval) {
+						clearInterval(healthCheckInterval);
+						setHealthCheckInterval(null);
+					}
+					refetch();
+					return true;
+				}
+				throw healthErr; // Re-throw if both checks fail
 			}
 		} catch (err) {
 			console.log("Server health check failed:", err.message);

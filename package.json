@@ -4,7 +4,9 @@
 	"description": "",
 	"main": "backend/server.js",
 	"scripts": {
-		"dev": "nodemon backend/server.js",
+		"dev": "node dev.js",
+		"dev:frontend": "cd frontend && npm run dev",
+		"dev:all": "concurrently \"npm run dev\" \"npm run dev:frontend\"",
 		"start": "node backend/server.js",
 		"build": "cd frontend && npm install && npm run build",
 		"vercel-build": "cd frontend && npm install && NODE_ENV=production ./node_modules/.bin/vite build"
@@ -17,6 +19,7 @@
 		"bcrypt": "^5.1.1",
 		"bcryptjs": "^2.4.3",
 		"cloudinary": "^2.6.1",
+		"concurrently": "^8.2.2",
 		"cookie-parser": "^1.4.6",
 		"cors": "^2.8.5",
 		"dotenv": "^16.4.5",

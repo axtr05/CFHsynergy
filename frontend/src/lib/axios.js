@@ -4,11 +4,11 @@ import axios from "axios";
 const getBaseUrl = () => {
 	// Development environment
 	if (import.meta.env.MODE === "development") {
-		return "http://localhost:5000/api/v1";
+		return "http://localhost:5000";
 	}
 	
 	// Production environment - use the API endpoint on the same domain
-	return "/api/v1";
+	return "";
 };
 
 export const axiosInstance = axios.create({
@@ -25,6 +25,11 @@ export const axiosInstance = axios.create({
 // Add request interceptor for better error handling and logging
 axiosInstance.interceptors.request.use(
 	(config) => {
+		// Add /api/v1 prefix to ensure consistent API paths
+		if (!config.url.startsWith('/api/v1') && !config.url.startsWith('http')) {
+			config.url = `/api/v1${config.url}`;
+		}
+		
 		console.log(`REQUEST: ${config.method.toUpperCase()} ${config.url}`, 
 			config.data ? { data: config.data } : '');
 		return config;
