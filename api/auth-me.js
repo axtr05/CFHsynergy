@@ -12,7 +12,10 @@ dotenv.config();
 // Connect to database
 connectDB()
   .then(() => console.log('Connected to database in auth-me handler'))
-  .catch(err => console.error('Database connection error in auth-me handler:', err.message));
+  .catch(err => {
+    console.error('Database connection error in auth-me handler:', err.message);
+    // Don't crash the server - we'll retry on subsequent requests
+  });
 
 // Create express app
 const app = express();
@@ -72,13 +75,24 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors());
 
+// Custom error handler for protectRoute to send proper 401 responses
+const handleAuthErrors = (err, req, res, next) => {
+  if (err.message === 'No token provided' || err.message === 'Invalid token') {
+    return res.status(401).json({ 
+      message: 'Unauthorized - not logged in',
+      error: err.message
+    });
+  }
+  next(err);
+};
+
 // Special handler for any auth/me endpoint regardless of path
-app.get('*', protectRoute, (req, res) => {
+app.get('*', protectRoute, handleAuthErrors, (req, res) => {
   console.log('Special auth/me handler activated for:', req.path);
   getCurrentUser(req, res);
 });
 
-// Testing endpoint
+// Testing endpoint that doesn't require auth
 app.get('/test', (req, res) => {
   res.status(200).json({ message: 'Auth-me endpoint is working' });
 });
@@ -89,7 +103,19 @@ app.use((err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
-  res.status(500).json({ message: 'Auth handler error', error: err.message });
+  
+  if (err.name === 'MongoError' || err.name === 'MongooseError') {
+    console.error('MongoDB connection error in auth handler');
+    return res.status(503).json({ 
+      message: 'Database connection error', 
+      error: 'Service temporarily unavailable'
+    });
+  }
+  
+  res.status(500).json({ 
+    message: 'Auth handler error', 
+    error: err.message 
+  });
 });
 
 export default app; 

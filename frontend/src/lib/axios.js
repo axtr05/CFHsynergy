@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 
 // Determine the API base URL based on environment
 const getBaseUrl = () => {
@@ -50,6 +51,30 @@ axiosInstance.interceptors.response.use(
 	async (error) => {
 		const originalRequest = error.config;
 		
+		// Special handling for MongoDB connection errors (503 Service Unavailable)
+		if (error.response?.status === 503) {
+			console.error('Database connection error detected:', {
+				url: originalRequest.url,
+				method: originalRequest.method,
+				status: error.response?.status,
+				data: error.response?.data
+			});
+			
+			// For login/register endpoints, show specific message
+			if (originalRequest.url.includes('/auth/login') || originalRequest.url.includes('/auth/register')) {
+				toast.error("Database connection issue. Please try again in a few moments.");
+				return Promise.reject(error);
+			}
+			
+			// For other endpoints, retry after a delay if not already retried
+			if (!originalRequest._retry) {
+				originalRequest._retry = true;
+				await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+				console.log('Retrying request after database connection error...');
+				return axiosInstance(originalRequest);
+			}
+		}
+		
 		// Special handling for like post errors
 		if (originalRequest.url.includes('/like') && error.response?.status === 500) {
 			console.error('Detected 500 error on like endpoint:', {
@@ -93,3 +118,8 @@ axiosInstance.interceptors.response.use(
 		return Promise.reject(error);
 	}
 );
+
+// Export a method to get the full URL for debugging
+export const getFullUrl = (path) => {
+	return `${getBaseUrl()}${path.startsWith('/api/v1') ? path : `/api/v1${path}`}`;
+};

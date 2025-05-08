@@ -16,11 +16,16 @@ import { connectDB } from "../backend/lib/db.js";
 
 dotenv.config();
 
-// Initialize DB connection
+// Initialize DB connection - but don't crash if it fails
+let dbConnected = false;
 connectDB()
-  .then(() => console.log('Connected to database'))
+  .then(() => {
+    console.log('Connected to database');
+    dbConnected = true;
+  })
   .catch(err => {
     console.error('Database connection error:', err.message);
+    // Don't crash the server - we'll retry on subsequent requests
   });
 
 // Create Express app
@@ -34,6 +39,37 @@ app.use((req, res, next) => {
   if (req.query.path) {
     console.log(`Removing unnecessary path parameter: ${req.query.path}`);
     delete req.query.path;
+  }
+  
+  next();
+});
+
+// MongoDB connection check middleware
+app.use(async (req, res, next) => {
+  // Skip health check endpoints
+  if (req.path === '/health' || req.path === '/v1/health') {
+    return next();
+  }
+  
+  // Skip options requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+  
+  // If we're not connected to MongoDB, try to connect again
+  if (!dbConnected) {
+    try {
+      console.log('Attempting to reconnect to MongoDB...');
+      await connectDB();
+      dbConnected = true;
+      console.log('Successfully reconnected to MongoDB');
+    } catch (error) {
+      console.error('Failed to reconnect to MongoDB:', error.message);
+      return res.status(503).json({ 
+        message: 'Database service unavailable',
+        error: 'Could not connect to database. Please try again later.'
+      });
+    }
   }
   
   next();
@@ -82,8 +118,12 @@ app.use(
 app.options('*', cors());
 
 // API routes - ensure they're mounted correctly
-// Note: AUTH endpoints are handled by separate API file (auth-me.js)
-// only mount other routes here
+// Mount auth routes for backward compatibility
+app.use("/v1/auth", authRoutes);
+app.use("/auth", authRoutes);
+
+// Note: AUTH/ME endpoint is handled by separate API file (auth-me.js)
+// Mount other routes here
 app.use("/v1/users", userRoutes);
 app.use("/v1/posts", postRoutes);
 app.use("/v1/notifications", notificationRoutes);
@@ -103,7 +143,8 @@ app.get("/v1/health", (req, res) => {
     status: "ok", 
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
-    clientUrl: clientUrl
+    clientUrl: clientUrl,
+    database: dbConnected ? "connected" : "disconnected"
   });
 });
 
@@ -111,16 +152,27 @@ app.get("/v1/health", (req, res) => {
 app.get("/health", (req, res) => {
   res.status(200).json({ 
     status: "ok", 
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    database: dbConnected ? "connected" : "disconnected"
   });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
   console.error("API error:", err.message);
+  
   if (res.headersSent) {
     return next(err);
   }
+  
+  // Handle MongoDB errors specifically
+  if (err.name === 'MongoError' || err.name === 'MongooseError' || err.name === 'MongoServerError') {
+    return res.status(503).json({
+      message: "Database error. Please try again later.",
+      error: "Service temporarily unavailable"
+    });
+  }
+  
   res.status(500).json({ message: "Something went wrong, please try again later" });
 });
 
