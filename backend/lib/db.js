@@ -7,15 +7,19 @@ dotenv.config();
 const mongooseOptions = {
 	useNewUrlParser: true,
 	useUnifiedTopology: true,
-	serverSelectionTimeoutMS: 15000, // Increased timeout to 15 seconds
-	socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+	serverSelectionTimeoutMS: 30000, // Increased timeout to 30 seconds
+	socketTimeoutMS: 60000, // Close sockets after 60 seconds of inactivity
 	family: 4, // Use IPv4, skip trying IPv6
-	maxPoolSize: 10, // Maintain up to 10 socket connections
+	maxPoolSize: 5, // Reduced to 5 for serverless environments
 	retryWrites: true, // Retry failed writes
-	connectTimeoutMS: 15000, // Increased connection timeout
+	connectTimeoutMS: 30000, // Increased connection timeout
 	// Add options to help with Vercel's serverless functions
 	autoIndex: false, // Don't build indexes in production
-	minPoolSize: 0 // Allow the pool to shrink to 0 during idle
+	minPoolSize: 0, // Allow the pool to shrink to 0 during idle
+	// Buffering allows requests to be queued while connecting
+	bufferCommands: true,
+	// Critical for serverless environments - fixes "buffering timed out" errors
+	bufferTimeoutMS: 30000 // Increase from default 10000ms to 30000ms
 };
 
 // Connection retries configuration
@@ -26,14 +30,23 @@ const RETRY_INTERVAL = 2000; // 2 seconds
 let retryCount = 0;
 let isConnected = false;
 
+// Create a cached connection variable
+let cachedConnection = null;
+
 /**
  * Connect to MongoDB with retries
  */
 export const connectDB = async () => {
-	// If already connected, return
-	if (isConnected) {
+	// If we have a cached connection, use it
+	if (cachedConnection) {
+		console.log("Using cached MongoDB connection");
+		return cachedConnection;
+	}
+
+	// If already connected through mongoose, use that
+	if (isConnected && mongoose.connection.readyState === 1) {
 		console.log("Using existing MongoDB connection");
-		return;
+		return mongoose.connection;
 	}
 	
 	// Get MongoDB URI from environment - try both possible env var names
@@ -57,13 +70,55 @@ export const connectDB = async () => {
 			finalUri += '&w=majority';
 		}
 		
+		// In serverless environments, we need to handle connecting when already connecting
+		if (mongoose.connection.readyState === 2) {
+			console.log("Connection already in progress, waiting...");
+			// Wait for the connection to be established
+			await new Promise((resolve) => {
+				mongoose.connection.once('connected', resolve);
+				mongoose.connection.once('error', resolve);
+			});
+			
+			// Check if connected successfully
+			if (mongoose.connection.readyState === 1) {
+				console.log("Existing connection attempt succeeded");
+				isConnected = true;
+				cachedConnection = mongoose.connection;
+				return mongoose.connection;
+			}
+			
+			// If not connected, disconnect and try again
+			console.log("Existing connection attempt failed, trying again");
+			if (mongoose.connection.readyState !== 0) {
+				await mongoose.disconnect();
+			}
+		}
+		
+		// Connect with our options
 		const conn = await mongoose.connect(finalUri, mongooseOptions);
+		
+		// Cache the connection
+		cachedConnection = conn;
 		
 		// Reset retry counter on successful connection
 		retryCount = 0;
 		isConnected = true;
 		
 		console.log(`MongoDB connected: ${conn.connection.host}`);
+		
+		// Add listeners for connection status
+		mongoose.connection.on('disconnected', () => {
+			console.log('MongoDB disconnected');
+			isConnected = false;
+			cachedConnection = null;
+		});
+		
+		mongoose.connection.on('error', (err) => {
+			console.error('MongoDB connection error:', err);
+			isConnected = false;
+			cachedConnection = null;
+		});
+		
 		return conn;
 	} catch (error) {
 		// Increment retry counter
@@ -89,6 +144,10 @@ export const connectDB = async () => {
 		
 		console.error("MongoDB connection failed:", errorDetails);
 		
+		// Clear cached connection
+		cachedConnection = null;
+		isConnected = false;
+		
 		// Throw a more user-friendly error
 		throw new Error(`Error connecting to MongoDB: ${error.message}`);
 	}
@@ -101,6 +160,7 @@ export const disconnectDB = async () => {
 	if (mongoose.connection.readyState !== 0) {
 		await mongoose.disconnect();
 		isConnected = false;
+		cachedConnection = null;
 		console.log("Disconnected from MongoDB");
 	}
 };
