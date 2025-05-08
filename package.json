@@ -6,7 +6,8 @@
 	"scripts": {
 		"dev": "nodemon backend/server.js",
 		"start": "node backend/server.js",
-		"build": "npm run buil"
+		"build": "cd frontend && npm install && npm run build",
+		"vercel-build": "cd frontend && npm install && NODE_ENV=production ./node_modules/.bin/vite build"
 	},
 	"keywords": [],
 	"author": "",
