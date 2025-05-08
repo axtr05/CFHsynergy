@@ -29,6 +29,18 @@
       "destination": "/api/auth-me"
     },
     {
+      "source": "/api/v1/auth/logout",
+      "destination": "/api/auth-logout"
+    },
+    {
+      "source": "/api/auth/logout",
+      "destination": "/api/auth-logout"
+    },
+    {
+      "source": "/auth/logout",
+      "destination": "/api/auth-logout"
+    },
+    {
       "source": "/api/v1/auth/login",
       "destination": "/api/auth-main"
     },
