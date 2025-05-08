@@ -5,6 +5,18 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/api/v1/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/v1/health",
+      "destination": "/api/health"
+    },
+    {
       "source": "/api/v1/auth/me",
       "destination": "/api/auth-me"
     },
@@ -72,7 +84,7 @@
   "env": {
     "NODE_ENV": "production",
     "CLIENT_URL": "https://cfhsynergy.vercel.app",
-    "MONGO_URI": "mongodb+srv://axtroffi:axtrkj05@cfhsynergy.vfo4amg.mongodb.net/"
+    "MONGO_URI": "mongodb+srv://axtroffi:axtrkj05@cfhsynergy.vfo4amg.mongodb.net/?retryWrites=true&w=majority&appName=cfhsynergy"
   },
   "headers": [
     {

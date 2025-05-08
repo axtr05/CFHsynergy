@@ -7,11 +7,15 @@ dotenv.config();
 const mongooseOptions = {
 	useNewUrlParser: true,
 	useUnifiedTopology: true,
-	serverSelectionTimeoutMS: 10000, // Timeout after 10 seconds
+	serverSelectionTimeoutMS: 15000, // Increased timeout to 15 seconds
 	socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
 	family: 4, // Use IPv4, skip trying IPv6
 	maxPoolSize: 10, // Maintain up to 10 socket connections
 	retryWrites: true, // Retry failed writes
+	connectTimeoutMS: 15000, // Increased connection timeout
+	// Add options to help with Vercel's serverless functions
+	autoIndex: false, // Don't build indexes in production
+	minPoolSize: 0 // Allow the pool to shrink to 0 during idle
 };
 
 // Connection retries configuration
@@ -43,7 +47,17 @@ export const connectDB = async () => {
 	try {
 		// Attempt connection
 		console.log(`Connecting to MongoDB (attempt ${retryCount + 1} of ${MAX_RETRIES + 1})...`);
-		const conn = await mongoose.connect(MONGODB_URI, mongooseOptions);
+		
+		// Add retryWrites and w=majority parameters if they're not already in the URI
+		let finalUri = MONGODB_URI;
+		if (!finalUri.includes('retryWrites=')) {
+			finalUri += finalUri.includes('?') ? '&retryWrites=true' : '?retryWrites=true';
+		}
+		if (!finalUri.includes('w=majority')) {
+			finalUri += '&w=majority';
+		}
+		
+		const conn = await mongoose.connect(finalUri, mongooseOptions);
 		
 		// Reset retry counter on successful connection
 		retryCount = 0;

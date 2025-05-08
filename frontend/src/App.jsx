@@ -152,7 +152,7 @@ function App() {
 					"/api/v1/auth/me",         // API v1 prefix
 				];
 				
-				// Direct axios for maximum control (no interceptors)
+				// Use the imported axios, not the global one (which doesn't exist)
 				const axiosConfig = {
 					withCredentials: true,
 					baseURL: import.meta.env.MODE === "development" ? "http://localhost:5000" : "",
@@ -164,7 +164,8 @@ function App() {
 				for (const endpoint of endpoints) {
 					try {
 						console.log(`Trying auth endpoint: ${endpoint}`);
-						const res = await axios.get(endpoint, axiosConfig);
+						// Use the imported axios instance instead of the global axios
+						const res = await axiosInstance.get(endpoint);
 						console.log(`Auth success with endpoint: ${endpoint}`);
 						if (connectionError) setConnectionError(false);
 						return res.data;
