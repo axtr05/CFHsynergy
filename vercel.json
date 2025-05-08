@@ -41,6 +41,18 @@
       "destination": "/api/auth-logout"
     },
     {
+      "source": "/api/v1/auth/update-role",
+      "destination": "/api/auth-update"
+    },
+    {
+      "source": "/api/auth/update-role",
+      "destination": "/api/auth-update"
+    },
+    {
+      "source": "/auth/update-role",
+      "destination": "/api/auth-update"
+    },
+    {
       "source": "/api/v1/auth/login",
       "destination": "/api/auth-main"
     },
