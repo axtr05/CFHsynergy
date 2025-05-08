@@ -232,3 +232,6 @@ export const updateUserRole = async (req, res) => {
 		res.status(500).json({ message: "Internal server error" });
 	}
 };
+
+// This file should export functions for login and signup/register
+// The register function might be named signup instead

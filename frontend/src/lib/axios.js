@@ -14,7 +14,7 @@ const getBaseUrl = () => {
 
 export const axiosInstance = axios.create({
 	baseURL: getBaseUrl(),
-	withCredentials: true,
+	withCredentials: true, // Always send credentials (cookies)
 	timeout: 30000, // Increase timeout to 30 seconds for image uploads
 	headers: {
 		"Content-Type": "application/json",
@@ -26,6 +26,9 @@ export const axiosInstance = axios.create({
 // Add request interceptor for better error handling and logging
 axiosInstance.interceptors.request.use(
 	(config) => {
+		// Always include credentials
+		config.withCredentials = true;
+		
 		// Add /api/v1 prefix to ensure consistent API paths
 		if (!config.url.startsWith('/api/v1') && !config.url.startsWith('http')) {
 			config.url = `/api/v1${config.url}`;
@@ -73,6 +76,21 @@ axiosInstance.interceptors.response.use(
 				console.log('Retrying request after database connection error...');
 				return axiosInstance(originalRequest);
 			}
+		}
+		
+		// Special handling for authentication errors (401)
+		if (error.response?.status === 401) {
+			// Only show toast for non-auth/me endpoints
+			if (!originalRequest.url.includes('/auth/me')) {
+				toast.error("Authentication failed. Please login again.");
+			}
+			return Promise.reject(error);
+		}
+		
+		// Special handling for authorization errors (403)
+		if (error.response?.status === 403) {
+			toast.error("You don't have permission to access this resource.");
+			return Promise.reject(error);
 		}
 		
 		// Special handling for like post errors

@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectDB } from '../backend/lib/db.js';
-import { login, register } from '../backend/controllers/auth.controller.js';
+import { login, signup } from '../backend/controllers/auth.controller.js';
 
 // Load environment variables
 dotenv.config();
@@ -128,7 +128,7 @@ registerAuthHandler('post', [
   '/auth/register',
   '/signup',
   '/register'
-], register);
+], signup);
 
 // Catch-all route handler for debugging
 app.all('*', (req, res) => {

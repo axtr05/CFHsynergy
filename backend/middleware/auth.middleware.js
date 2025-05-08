@@ -3,12 +3,15 @@ import User from "../models/user.model.js";
 
 export const protectRoute = async (req, res, next) => {
 	try {
-		// Get token from cookie or header
-		const token = req.cookies.jwt || (req.headers.authorization && req.headers.authorization.startsWith("Bearer") 
-			? req.headers.authorization.split(" ")[1] 
-			: null);
+		// Get token from different possible cookie names or header
+		const token = req.cookies.jwt || 
+					  req.cookies['jwt-cfh-synergy'] || 
+					  (req.headers.authorization && req.headers.authorization.startsWith("Bearer") 
+						? req.headers.authorization.split(" ")[1] 
+						: null);
 
 		console.log("Auth Middleware - JWT Token:", token ? "Token found" : "No token");
+		console.log("Auth Middleware - Cookie names:", Object.keys(req.cookies).join(', ') || 'none');
 		
 		// Check if token exists
 		if (!token) {

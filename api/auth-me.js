@@ -108,6 +108,16 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors());
 
+// Custom cookie middleware to copy jwt-cfh-synergy to jwt for auth middleware compatibility
+app.use((req, res, next) => {
+  if (req.cookies['jwt-cfh-synergy'] && !req.cookies.jwt) {
+    console.log('Copying jwt-cfh-synergy cookie to jwt for compatibility');
+    // Add the cookie to both the request cookies and the raw cookie header
+    req.cookies.jwt = req.cookies['jwt-cfh-synergy'];
+  }
+  next();
+});
+
 // Custom error handler for protectRoute to send proper 401 responses
 const handleAuthErrors = (err, req, res, next) => {
   if (err.message === 'No token provided' || err.message === 'Invalid token') {
