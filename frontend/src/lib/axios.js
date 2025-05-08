@@ -1,7 +1,18 @@
 import axios from "axios";
 
+// Determine the API base URL based on environment
+const getBaseUrl = () => {
+	// Development environment
+	if (import.meta.env.MODE === "development") {
+		return "http://localhost:5000/api/v1";
+	}
+	
+	// Production environment - use the API endpoint on the same domain
+	return "/api/v1";
+};
+
 export const axiosInstance = axios.create({
-	baseURL: import.meta.env.MODE === "development" ? "http://localhost:5000/api/v1" : "/api",
+	baseURL: getBaseUrl(),
 	withCredentials: true,
 	timeout: 30000, // Increase timeout to 30 seconds for image uploads
 	headers: {
