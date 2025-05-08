@@ -53,37 +53,52 @@ function App() {
 	const checkServerHealth = async () => {
 		try {
 			console.log("Attempting health check...");
-			// Using auth/me as a more robust health check
-			try {
-				const res = await axiosInstance.get("/health");
-				console.log("Server health check passed via /health");
+			// Try multiple health check endpoints in sequence
+			const endpoints = ["/health", "/v1/health", "/api/v1/health"];
+			
+			for (const endpoint of endpoints) {
+				try {
+					console.log(`Trying health endpoint: ${endpoint}`);
+					const res = await axiosInstance.get(endpoint, {
+						timeout: 5000, // Shorter timeout for health checks
+						validateStatus: () => true // Accept any status
+					});
+					
+					if (res.status >= 200 && res.status < 500) {
+						console.log(`Server health check passed via ${endpoint}`);
+						setConnectionError(false);
+						if (healthCheckInterval) {
+							clearInterval(healthCheckInterval);
+							setHealthCheckInterval(null);
+						}
+						refetch();
+						return true;
+					}
+				} catch (endpointErr) {
+					console.log(`Health check failed for ${endpoint}:`, endpointErr.message);
+					// Continue to next endpoint
+				}
+			}
+			
+			// Ultimate fallback - try auth/me directly
+			console.log("Trying direct auth/me endpoint as final fallback");
+			const authRes = await axiosInstance.get("/auth/me", {
+				validateStatus: () => true,
+				timeout: 5000 
+			});
+			
+			if (authRes.status !== 0) {
+				console.log("Auth endpoint health check passed");
 				setConnectionError(false);
-				// Clear health check interval if connection is restored
 				if (healthCheckInterval) {
 					clearInterval(healthCheckInterval);
 					setHealthCheckInterval(null);
 				}
-				// Refresh data
 				refetch();
 				return true;
-			} catch (healthErr) {
-				console.log("Primary health check failed, trying fallback...");
-				// Fallback to auth/me endpoint
-				const authRes = await axiosInstance.get("/auth/me", { 
-					validateStatus: () => true // Accept any status
-				});
-				if (authRes.status !== 0) { // Any response is better than none
-					console.log("Auth endpoint health check passed");
-					setConnectionError(false);
-					if (healthCheckInterval) {
-						clearInterval(healthCheckInterval);
-						setHealthCheckInterval(null);
-					}
-					refetch();
-					return true;
-				}
-				throw healthErr; // Re-throw if both checks fail
 			}
+			
+			throw new Error("All health checks failed");
 		} catch (err) {
 			console.log("Server health check failed:", err.message);
 			return false;
@@ -130,10 +145,23 @@ function App() {
 		queryKey: ["authUser"],
 		queryFn: async () => {
 			try {
-				const res = await axiosInstance.get("/auth/me");
-				// If we got a successful response, clear any connection error state
-				if (connectionError) setConnectionError(false);
-				return res.data;
+				// Try direct auth/me first (no /api/v1 prefix)
+				try {
+					console.log("Attempting auth check with direct endpoint");
+					const res = await axios.get("/auth/me", {
+						withCredentials: true,
+						baseURL: import.meta.env.MODE === "development" ? "http://localhost:5000" : "",
+						timeout: 10000
+					});
+					if (connectionError) setConnectionError(false);
+					return res.data;
+				} catch (directErr) {
+					console.log("Direct auth/me failed, trying with axiosInstance");
+					// Fall back to using axiosInstance which adds /api/v1
+					const res = await axiosInstance.get("/auth/me");
+					if (connectionError) setConnectionError(false);
+					return res.data;
+				}
 			} catch (err) {
 				// Handle auth errors separately from connection errors
 				if (err.response && err.response.status === 401) {

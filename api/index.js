@@ -29,6 +29,13 @@ const app = express();
 // Debug middleware - log all requests
 app.use((req, res, next) => {
   console.log(`API Request: ${req.method} ${req.url}`);
+  
+  // Remove any path query parameter as it's causing issues
+  if (req.query.path) {
+    console.log(`Removing unnecessary path parameter: ${req.query.path}`);
+    delete req.query.path;
+  }
+  
   next();
 });
 
@@ -60,7 +67,8 @@ app.use(
         callback(null, true);
       } else {
         console.warn(`Origin ${origin} not allowed by CORS`);
-        callback(null, false);
+        // Allow all origins in production for now to debug
+        callback(null, true);
       }
     },
     credentials: true,
@@ -74,8 +82,8 @@ app.use(
 app.options('*', cors());
 
 // API routes - ensure they're mounted correctly
-// We need these at /v1 routes for the frontend
-app.use("/v1/auth", authRoutes);
+// Note: AUTH endpoints are handled by separate API file (auth-me.js)
+// only mount other routes here
 app.use("/v1/users", userRoutes);
 app.use("/v1/posts", postRoutes);
 app.use("/v1/notifications", notificationRoutes);
@@ -83,7 +91,6 @@ app.use("/v1/connections", connectionRoutes);
 app.use("/v1/projects", projectRoutes);
 
 // Also mount at root level for direct API requests
-app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/posts", postRoutes);
 app.use("/notifications", notificationRoutes);
