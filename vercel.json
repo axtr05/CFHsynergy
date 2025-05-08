@@ -1,15 +1,19 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "chmod +x vercel-build.sh && ./vercel-build.sh",
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": "/api"
     },
     {
+      "source": "/(assets|collaboration\\.svg|hero2\\.jpg|logo\\.svg|small-logo\\.png|vite\\.svg|avatar\\.png|banner\\.png)(.*)",
+      "destination": "/$1$2"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/"
+      "destination": "/index.html"
     }
   ],
   "env": {
